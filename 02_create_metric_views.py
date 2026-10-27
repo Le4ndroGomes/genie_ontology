@@ -31,58 +31,58 @@ DIMS_COMUNS = """
     expr: mes_execucao
     display_name: Mês
     comment: "Mês de execução do item (1º dia do mês)."
-    synonyms: [mês, competência, período, mes de execução]
+    synonyms: ["mês", "competência", "período", "mes de execução"]
   - name: trimestre
     expr: trimestre_execucao
     display_name: Trimestre
     comment: "Trimestre de execução (1º dia do trimestre)."
-    synonyms: [trimestre, quarter]
+    synonyms: ["trimestre", "quarter"]
   - name: ano
     expr: ano_execucao
     display_name: Ano
-    synonyms: [ano, exercício]
+    synonyms: ["ano", "exercício"]
   - name: operadora
     expr: operadora
     display_name: Operadora
     comment: "Operadora de plano de saúde cobrada na conta (fonte pagadora)."
-    synonyms: [convênio, fonte pagadora, plano de saúde, pagador]
+    synonyms: ["convênio", "fonte pagadora", "plano de saúde", "pagador"]
   - name: plano
     expr: plano
     display_name: Plano
     comment: "Plano do beneficiário na carteirinha usada no atendimento."
-    synonyms: [produto, plano do beneficiário]
+    synonyms: ["produto", "plano do beneficiário"]
   - name: acomodacao_plano
     expr: acomodacao_plano
     display_name: Acomodação do plano
     comment: "ENFERMARIA ou APARTAMENTO: a acomodação a que o beneficiário tem direito."
-    synonyms: [acomodação, tipo de quarto]
+    synonyms: ["acomodação", "tipo de quarto"]
   - name: unidade
     expr: unidade
     display_name: Unidade
-    synonyms: [hospital, unidade hospitalar, estabelecimento]
+    synonyms: ["hospital", "unidade hospitalar", "estabelecimento"]
   - name: medico
     expr: medico_responsavel
     display_name: Médico responsável
-    synonyms: [médico, profissional, prestador]
+    synonyms: ["médico", "profissional", "prestador"]
   - name: especialidade
     expr: especialidade
     display_name: Especialidade
-    synonyms: [especialidade médica]
+    synonyms: ["especialidade médica"]
   - name: procedimento
     expr: procedimento
     display_name: Procedimento
     comment: "Procedimento, material, OPME, medicamento, diária ou taxa cobrado no item (código TUSS fictício)."
-    synonyms: [item, código TUSS, serviço]
+    synonyms: ["item", "código TUSS", "serviço"]
   - name: grupo_procedimento
     expr: grupo_procedimento
     display_name: Grupo do procedimento
     comment: "CONSULTA, EXAME, PROCEDIMENTO, MATERIAL, OPME, MEDICAMENTO, DIARIA ou TAXA."
-    synonyms: [grupo, tipo de item]
+    synonyms: ["grupo", "tipo de item"]
   - name: tipo_atendimento
     expr: tipo_atendimento
     display_name: Tipo de atendimento
     comment: "PS, AMBULATORIAL, INTERNACAO ou ONCOLOGIA."
-    synonyms: [tipo de atendimento, linha de cuidado]
+    synonyms: ["tipo de atendimento", "linha de cuidado"]
   - name: status_conta
     expr: status_conta
     display_name: Status da conta
@@ -98,12 +98,12 @@ DIMS_GLOSA = """
     expr: motivo_glosa
     display_name: Motivo da glosa
     comment: "Motivo TISS informado pela operadora (ex.: sem autorização prévia, acima do preço contratado)."
-    synonyms: [motivo, razão da glosa, código TISS]
+    synonyms: ["motivo", "razão da glosa", "código TISS"]
   - name: categoria_glosa
     expr: categoria_glosa
     display_name: Categoria da glosa
     comment: "AUTORIZACAO, PRECO, ELEGIBILIDADE, TECNICA ou ADMINISTRATIVA."
-    synonyms: [categoria, tipo de glosa]
+    synonyms: ["categoria", "tipo de glosa"]
 """
 
 VIEWS = {
@@ -118,24 +118,24 @@ measures:
     expr: SUM(valor_faturado)
     display_name: Valor faturado (R$)
     comment: "Soma do valor cobrado nos itens das contas, em R$."
-    synonyms: [faturamento, receita bruta, valor cobrado, produção]
+    synonyms: ["faturamento", "receita bruta", "valor cobrado", "produção"]
   - name: valor_faturado_analisado
     expr: SUM(valor_faturado) FILTER (WHERE conta_analisada)
     display_name: Faturado já analisado (R$)
     comment: "Faturado só das contas já analisadas pela operadora (status PAGA ou GLOSADA_PARCIAL)."
-    synonyms: [faturado analisado]
+    synonyms: ["faturado analisado"]
   - name: contas
     expr: COUNT(DISTINCT conta_id)
     display_name: Contas
-    synonyms: [quantidade de contas, número de contas]
+    synonyms: ["quantidade de contas", "número de contas"]
   - name: itens
     expr: COUNT(1)
     display_name: Itens faturados
-    synonyms: [itens, linhas da conta]
+    synonyms: ["itens", "linhas da conta"]
   - name: ticket_medio_conta
     expr: SUM(valor_faturado) / NULLIF(COUNT(DISTINCT conta_id), 0)
     display_name: Ticket médio por conta (R$)
-    synonyms: [ticket médio, valor médio da conta]
+    synonyms: ["ticket médio", "valor médio da conta"]
 """,
 "mv_glosas": """
 version: 1.1
@@ -149,7 +149,7 @@ measures:
     expr: SUM(valor_glosado)
     display_name: Valor glosado (R$)
     comment: "Valor recusado pela operadora, em R$."
-    synonyms: [glosa, glosado, valor recusado, perda por glosa]
+    synonyms: ["glosa", "glosado", "valor recusado", "perda por glosa"]
   - name: valor_faturado_analisado
     expr: SUM(valor_faturado) FILTER (WHERE conta_analisada)
     display_name: Faturado já analisado (R$)
@@ -158,7 +158,7 @@ measures:
     expr: SUM(valor_glosado) / NULLIF(SUM(valor_faturado) FILTER (WHERE conta_analisada), 0)
     display_name: Taxa de glosa
     comment: "Valor glosado / valor faturado das contas já analisadas (0 a 1). Meses sem contas analisadas retornam nulo, não zero."
-    synonyms: [índice de glosa, percentual de glosa, % de glosa]
+    synonyms: ["índice de glosa", "percentual de glosa", "% de glosa"]
   - name: itens_glosados
     expr: COUNT(1) FILTER (WHERE valor_glosado > 0)
     display_name: Itens glosados
@@ -169,7 +169,7 @@ measures:
     expr: SUM(GREATEST(valor_unitario - valor_unitario_contratado, 0) * quantidade)
     display_name: Cobrado acima do contratado (R$)
     comment: "Diferença entre o valor unitário cobrado e o preço contratado vigente, vezes a quantidade."
-    synonyms: [sobrepreço, cobrança acima da tabela]
+    synonyms: ["sobrepreço", "cobrança acima da tabela"]
 """,
 "mv_recuperacao": """
 version: 1.1
@@ -183,26 +183,26 @@ __DIMS_GLOSA__
     expr: status_recurso
     display_name: Status do recurso
     comment: "EM_ANALISE, ACEITO ou NEGADO; nulo quando a glosa não foi recorrida."
-    synonyms: [situação do recurso]
+    synonyms: ["situação do recurso"]
 measures:
   - name: valor_glosado
     expr: SUM(valor_glosado)
     display_name: Valor glosado (R$)
-    synonyms: [glosa, glosado]
+    synonyms: ["glosa", "glosado"]
   - name: valor_recuperado
     expr: SUM(valor_recuperado)
     display_name: Valor recuperado (R$)
     comment: "Valor revertido a favor do hospital em recurso aceito, em R$."
-    synonyms: [recuperado, recuperação, valor revertido]
+    synonyms: ["recuperado", "recuperação", "valor revertido"]
   - name: taxa_recuperacao
     expr: SUM(valor_recuperado) / NULLIF(SUM(valor_glosado), 0)
     display_name: Taxa de recuperação
     comment: "Valor recuperado / valor glosado (0 a 1)."
-    synonyms: [índice de recuperação, % recuperado]
+    synonyms: ["índice de recuperação", "% recuperado"]
   - name: itens_recursados
     expr: COUNT(1) FILTER (WHERE recursado)
     display_name: Itens recorridos
-    synonyms: [recursos, glosas recorridas]
+    synonyms: ["recursos", "glosas recorridas"]
   - name: taxa_recurso
     expr: COUNT(1) FILTER (WHERE recursado) / COUNT(1)
     display_name: Taxa de recurso

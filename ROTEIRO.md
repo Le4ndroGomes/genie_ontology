@@ -273,3 +273,5 @@ Para ver o efeito do *authority score*, faça uma das perguntas antes do passo 7
 | `Table ... is already managed by pipeline ...` | Você recriou o pipeline sem apagar as tabelas do anterior: `DROP SCHEMA ontologia_prata CASCADE` (e ouro), recrie os schemas (célula B.1) e refaça as duas fases |
 | Notebook 04 mostra `ERRO` em `SET TAG` | Permissão para aplicar o tag do domínio, ou ativo ainda não criado (rode os passos 4 e 5 antes) |
 | Taxa de glosa "cai" nos últimos meses | Contas ainda não analisadas pela operadora. A Metric View já filtra, mas o agente precisa da instrução (está no notebook 03) |
+| `PERMISSION_DENIED: Can not move tables across arclight catalogs` | O catálogo padrão do pipeline usa Default Storage e as tabelas vão para outro catálogo. Em **Settings**, use como catálogo padrão o mesmo da Configuration (`catalogo`) |
+| Ouro: `TABLE_OR_VIEW_NOT_FOUND` em `<catalogo>.ontologia_prata.*` | Versão antiga da prata com nomes curtos: use o `01_prata*.sql` atual (nomes completos `${catalogo}.${prata}.tabela`) |

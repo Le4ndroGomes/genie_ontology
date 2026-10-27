@@ -1,23 +1,29 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # 00 - Shared config
+# MAGIC # 00 - Configuração compartilhada
 # MAGIC
-# MAGIC Every other notebook in this folder starts with `%run ./00_config` to pick up
-# MAGIC the catalog/schema names below. Change the widget defaults once here (or
-# MAGIC override them at run time in the widget bar) and every notebook stays in sync.
+# MAGIC Os outros notebooks começam com `%run ./00_config` para ler os nomes abaixo. Mude os defaults aqui (ou
+# MAGIC sobrescreva na barra de widgets) e todos ficam em sincronia.
 # MAGIC
-# MAGIC Part of the **Genie One + Genie Ontology demo**. See `agents.md` at the repo
-# MAGIC root for the full plan.
+# MAGIC Parte da demo **Genie One + Genie Ontology — Rede Américas (ciclo de receita)**, adaptada de
+# MAGIC [databeli/genie_ontology](https://github.com/databeli/genie_ontology). Dados 100% sintéticos.
+# MAGIC
+# MAGIC | Schema | Conteúdo | Quem cria |
+# MAGIC |---|---|---|
+# MAGIC | `ontologia_staging` | Volume de staging e event log da ingestão | Lakeflow Connect |
+# MAGIC | `ontologia_bronze` | Cópia fiel das 22 tabelas do Azure SQL | Lakeflow Connect |
+# MAGIC | `ontologia_prata` | 22 materialized views tipadas, com PK/FK, comentários e qualidade | Pipeline `ont_medalhao` |
+# MAGIC | `ontologia_ouro` | 3 fatos + 3 Metric Views | Pipeline `ont_medalhao` + `02_create_metric_views` |
 
 # COMMAND ----------
 
-dbutils.widgets.text("catalog_name", "genie_ontology_demo", "Catalog name")
-dbutils.widgets.text("schema_name", "retail_demo", "Schema name")
+dbutils.widgets.text("catalog_name", "rede_americas_demo", "Catálogo")
+dbutils.widgets.text("prefixo_schema", "ontologia", "Prefixo dos schemas")
 
-CATALOG = dbutils.widgets.get("catalog_name")
-SCHEMA = dbutils.widgets.get("schema_name")
-FQ_SCHEMA = f"{CATALOG}.{SCHEMA}"
+CATALOG = dbutils.widgets.get("catalog_name").strip()
+PREFIXO = dbutils.widgets.get("prefixo_schema").strip()
+S_STAGING, S_BRONZE, S_PRATA, S_OURO = (f"{PREFIXO}_{c}" for c in ("staging", "bronze", "prata", "ouro"))
+FQ_BRONZE, FQ_PRATA, FQ_OURO = (f"{CATALOG}.{s}" for s in (S_BRONZE, S_PRATA, S_OURO))
 
-print(f"CATALOG    = {CATALOG}")
-print(f"SCHEMA     = {SCHEMA}")
-print(f"FQ_SCHEMA  = {FQ_SCHEMA}")
+print(f"CATALOG = {CATALOG}")
+print(f"BRONZE  = {FQ_BRONZE}\nPRATA   = {FQ_PRATA}\nOURO    = {FQ_OURO}")

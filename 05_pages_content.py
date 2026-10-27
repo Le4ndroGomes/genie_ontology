@@ -1,142 +1,224 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # 05 - Pages content (manual, reference only)
+# MAGIC # 05 - Conteúdo das Pages (manual, só referência)
 # MAGIC
-# MAGIC This notebook creates nothing - Pages are authored in Catalog Explorer ->
-# MAGIC Discover -> Pages. Copy each block below into a new Page. Fields below match
-# MAGIC the actual Page creation form in the UI exactly:
-# MAGIC Domain (single-select) / Name / Owner / Synonyms / Description / Body
-# MAGIC (Definition + Business use) / Related assets / Sources (optional).
+# MAGIC Este notebook não cria nada: Pages são escritas em **Discover → Pages → Create page** (Beta; um account admin
+# MAGIC habilita em *Account console → Previews*). Os campos seguem o formulário da UI:
+# MAGIC - Domain (seleção única), Name, Owner, Synonyms;
+# MAGIC - Description, Body (Definição + Uso no negócio);
+# MAGIC - Related assets, Sources.
+# MAGIC
+# MAGIC **Não coloque dados sensíveis** em nome, sinônimos, descrição ou corpo: nada de paciente, CPF ou carteirinha.
 # MAGIC
 # MAGIC ---
 # MAGIC
-# MAGIC ## Page 1: Total Revenue
+# MAGIC ## Page 1: Glosa
 # MAGIC
-# MAGIC | Field | Value |
+# MAGIC | Campo | Valor |
 # MAGIC |---|---|
-# MAGIC | Domain | Finance |
-# MAGIC | Name | Total Revenue |
-# MAGIC | Owner | you (databeli13@gmail.com) |
-# MAGIC | Synonyms | revenue, sales, gross sales, GMV |
+# MAGIC | Domain | Faturamento e Glosa |
+# MAGIC | Name | Glosa |
+# MAGIC | Owner | você |
+# MAGIC | Synonyms | glosa hospitalar, recusa de pagamento, valor glosado, taxa de glosa |
 # MAGIC
 # MAGIC **Description:**
 # MAGIC ```
-# MAGIC Sum of gross revenue (quantity x unit price) across all order lines, with no
-# MAGIC adjustment for returns or discounts.
+# MAGIC Valor de um item da conta hospitalar que a operadora se recusa a pagar, com motivo no padrão TISS. A taxa de
+# MAGIC glosa oficial considera só contas já analisadas pela operadora.
 # MAGIC ```
 # MAGIC
 # MAGIC **Body:**
 # MAGIC ```
-# MAGIC Definition
-# MAGIC Total Revenue is the sum of gross revenue (quantity x unit price) across all
-# MAGIC order lines in fact_sales, with no adjustment for returns or discounts.
+# MAGIC Definição
+# MAGIC Glosa é a recusa, total ou parcial, de um item da conta (procedimento, material, OPME, medicamento, diária ou
+# MAGIC taxa) pela operadora. Cada glosa tem um motivo TISS agrupado em categoria:
+# MAGIC - AUTORIZACAO — 1801: procedimento sem autorização prévia
+# MAGIC - PRECO — 1705: valor acima do preço contratado (@precos_contratados)
+# MAGIC - ELEGIBILIDADE — 1909: acomodação incompatível com o plano; 1301: beneficiário fora da vigência
+# MAGIC - TECNICA — 1602: falta de justificativa técnica
+# MAGIC - ADMINISTRATIVA — 2001: duplicidade; 2010: documentação incompleta
 # MAGIC
-# MAGIC Formula: SUM(fact_sales.revenue)
+# MAGIC Fórmulas oficiais (@mv_faturamento_glosa)
+# MAGIC - Taxa de glosa = valor glosado ÷ valor faturado das contas já analisadas (status PAGA ou GLOSADA_PARCIAL).
+# MAGIC   Os últimos ~2 meses ainda não foram analisados; não compare a taxa desses meses.
+# MAGIC - Taxa de recuperação = valor recuperado em recurso ÷ valor glosado.
 # MAGIC
-# MAGIC Business use
-# MAGIC Use the total_revenue measure in @mv_sales_performance rather than querying
-# MAGIC @fact_sales directly - it carries the certified definition and pre-built
-# MAGIC dimension joins (date, product, customer, store).
+# MAGIC Indicador entre visões
+# MAGIC "Quanto da glosa vem de guias negadas" combina @mv_faturamento_glosa (glosa do motivo 1801) com
+# MAGIC @mv_autorizacoes (taxa de negativa e glosa_sem_autorizacao, mesma operadora e período).
 # MAGIC
-# MAGIC See also: @Customer Return Rate for how returns relate to this figure.
+# MAGIC Uso no negócio
+# MAGIC Glosa de autorização e de preço quase nunca é revertida em recurso: o mais barato é evitá-la antes do envio
+# MAGIC (checar guia, preço vigente e acomodação). Veja @Autorização prévia e @Acomodação do plano.
 # MAGIC ```
 # MAGIC
-# MAGIC **Related assets:** `mv_sales_performance`, `fact_sales`, `Retail Analytics Genie`
+# MAGIC **Related assets:** `mv_faturamento_glosa`, `mv_autorizacoes`, `fato_itens_faturados`, `glosas`, `motivos_glosa`, `recursos_glosa`
 # MAGIC
-# MAGIC **Sources (optional):** none - content authored directly in this Page.
+# MAGIC **Sources (optional):** Padrão TISS (ANS); sistema de faturamento (schema `faturamento` da origem).
 # MAGIC
 # MAGIC ---
 # MAGIC
-# MAGIC ## Page 2: Customer Return Rate
+# MAGIC ## Page 2: Autorização prévia
 # MAGIC
-# MAGIC | Field | Value |
+# MAGIC | Campo | Valor |
 # MAGIC |---|---|
-# MAGIC | Domain | Customer |
-# MAGIC | Name | Customer Return Rate |
-# MAGIC | Owner | you (databeli13@gmail.com) |
-# MAGIC | Synonyms | return rate, returns ratio |
+# MAGIC | Domain | Autorização Prévia |
+# MAGIC | Name | Autorização prévia |
+# MAGIC | Owner | você |
+# MAGIC | Synonyms | guia, guia de autorização, senha, pré-autorização, negativa, taxa de negativa |
 # MAGIC
 # MAGIC **Description:**
 # MAGIC ```
-# MAGIC Share of revenue that is later refunded: total return amount divided by total
-# MAGIC revenue for the same period and dimension slice.
+# MAGIC Pedido do hospital à operadora para executar um procedimento que exige aprovação antes. Guia negada e
+# MAGIC executada vira glosa 1801.
 # MAGIC ```
 # MAGIC
 # MAGIC **Body:**
 # MAGIC ```
-# MAGIC Definition
-# MAGIC Customer Return Rate measures what share of revenue is later refunded.
+# MAGIC Definição
+# MAGIC Procedimentos com exige_autorizacao = true em @procedimentos (ressonância, cirurgias, OPME, quimioterapia) só
+# MAGIC podem ser executados com guia aprovada (@autorizacoes). Status da guia: APROVADA, NEGADA ou PENDENTE.
 # MAGIC
-# MAGIC Formula: SUM(fact_returns.return_amount) / SUM(fact_sales.revenue)
-# MAGIC for the same time period and dimension slice.
+# MAGIC Fórmulas oficiais (@mv_autorizacoes)
+# MAGIC - Taxa de negativa = guias negadas ÷ guias respondidas (pendentes ficam fora).
+# MAGIC - Tempo de resposta = horas entre a solicitação e a resposta da operadora.
 # MAGIC
-# MAGIC This is a cross-fact metric, so it is not a single stored measure - combine
-# MAGIC the return_amount measure from @mv_customer_returns with the total_revenue
-# MAGIC measure from @mv_sales_performance for the period you're comparing.
+# MAGIC Caminhos
+# MAGIC - Até o dinheiro: guia → atendimento (autorizacao_id) → conta → itens → glosa 1801.
+# MAGIC - Até a experiência: guia → protocolo da central (autorizacao_id) → pesquisa de satisfação.
 # MAGIC
-# MAGIC Business use
-# MAGIC Use this Page as the authoritative formula whenever someone asks about return
-# MAGIC rate - Genie cannot derive the cross-fact ratio on its own from either metric
-# MAGIC view alone.
-# MAGIC
-# MAGIC See also: @Total Revenue.
+# MAGIC Uso no negócio
+# MAGIC Uma alta de negativa numa operadora gera, em sequência, glosa por falta de autorização e reclamação na
+# MAGIC central e na ouvidoria. Veja @Glosa e @Protocolo da central.
 # MAGIC ```
 # MAGIC
-# MAGIC **Related assets:** `mv_customer_returns`, `mv_sales_performance`, `fact_returns`, `Retail Analytics Genie`
+# MAGIC **Related assets:** `mv_autorizacoes`, `fato_autorizacoes`, `autorizacoes`, `procedimentos`, `protocolos`
 # MAGIC
-# MAGIC **Sources (optional):** none - content authored directly in this Page.
+# MAGIC **Sources (optional):** Sistema hospitalar (schema `assistencial` da origem).
 # MAGIC
 # MAGIC ---
 # MAGIC
-# MAGIC ## Page 3: Retail Analytics Genie Agent
+# MAGIC ## Page 3: Acomodação do plano
 # MAGIC
-# MAGIC | Field | Value |
+# MAGIC | Campo | Valor |
 # MAGIC |---|---|
-# MAGIC | Domain | Sales |
-# MAGIC | Name | Retail Analytics Genie Agent |
-# MAGIC | Owner | you (databeli13@gmail.com) |
-# MAGIC | Synonyms | retail genie, sales genie, retail analytics assistant |
+# MAGIC | Domain | Cadastro e Assistencial |
+# MAGIC | Name | Acomodação do plano |
+# MAGIC | Owner | você |
+# MAGIC | Synonyms | acomodação, tipo de quarto, enfermaria, apartamento, diferença de acomodação |
 # MAGIC
 # MAGIC **Description:**
 # MAGIC ```
-# MAGIC Onboarding page for the Retail Analytics Genie Agent - what it answers and
-# MAGIC which certified metric views it draws from.
+# MAGIC Tipo de quarto (enfermaria ou apartamento) a que o beneficiário tem direito pelo plano. Diária de apartamento
+# MAGIC em plano de enfermaria é glosada (1909).
 # MAGIC ```
 # MAGIC
 # MAGIC **Body:**
 # MAGIC ```
-# MAGIC Definition
-# MAGIC @Retail Analytics Genie is the Genie Agent for Northwind Retail sales,
-# MAGIC returns, and inventory questions. It answers from three certified metric
-# MAGIC views: @mv_sales_performance, @mv_customer_returns, and @mv_inventory_health.
+# MAGIC Definição
+# MAGIC Cada plano (@planos) define a acomodação: ENFERMARIA ou APARTAMENTO. Na internação o hospital cobra uma diária
+# MAGIC por dia em @itens_conta: 80000101 = enfermaria, 80000102 = apartamento, 80000103 = UTI.
 # MAGIC
-# MAGIC Business use
-# MAGIC Ask things like:
-# MAGIC - "What was total revenue last quarter by product category?"
-# MAGIC - "What's our customer return rate this year vs last year?"
-# MAGIC - "Which region has the highest revenue but also high returns?"
-# MAGIC - "Which products have the lowest average stock on hand?"
+# MAGIC Regra
+# MAGIC Beneficiário de plano de enfermaria em apartamento, sem termo de diferença, gera glosa 1909 da diferença entre
+# MAGIC as diárias. O hospital tenta cobrar a diferença do paciente, que reclama na central (assunto "Cobrança indevida
+# MAGIC ao paciente").
 # MAGIC
-# MAGIC For metric definitions, see @Total Revenue and @Customer Return Rate.
+# MAGIC Como achar a acomodação de um atendimento
+# MAGIC atendimento → beneficiário (a carteirinha usada no atendimento) → plano. O paciente pode ter trocado de plano:
+# MAGIC use a carteirinha do atendimento, não a atual (@beneficiarios tem a vigência).
+# MAGIC
+# MAGIC Uso no negócio
+# MAGIC Conferir a acomodação na admissão evita a glosa e a reclamação. Veja @Glosa e @Protocolo da central.
 # MAGIC ```
 # MAGIC
-# MAGIC **Related assets:** `Retail Analytics Genie`, `mv_sales_performance`, `mv_customer_returns`, `mv_inventory_health`
+# MAGIC **Related assets:** `planos`, `beneficiarios`, `itens_conta`, `mv_faturamento_glosa`, `mv_central`
 # MAGIC
-# MAGIC **Sources (optional):** none - content authored directly in this Page.
+# MAGIC **Sources (optional):** Cadastro de planos e beneficiários (schema `cadastro` da origem).
 # MAGIC
 # MAGIC ---
 # MAGIC
-# MAGIC ## Notes
-# MAGIC - The Page's **Domain** field is single-select in the UI (unlike table/view
-# MAGIC   domain tagging, which allows more than one) - each Page above lists exactly
-# MAGIC   one domain; pick the domain that best matches where someone would browse to
-# MAGIC   find that definition.
-# MAGIC - **Description** is the short one-line summary shown in Page listings/search;
-# MAGIC   **Body** is the full rich-text content, structured here with a "Definition"
-# MAGIC   and "Business use" heading each - reproduce that structure with the editor's
-# MAGIC   heading/paragraph formatting.
-# MAGIC - Use the editor's `@` mention to link each related asset and cross-link the
-# MAGIC   other two Pages - that's what makes them show up as "related assets" and
-# MAGIC   lets Genie One traverse between them.
-# MAGIC - Publish all three (draft Pages are lower priority in Genie's ranking than
-# MAGIC   published ones).
+# MAGIC ## Page 4: Protocolo da central
+# MAGIC
+# MAGIC | Campo | Valor |
+# MAGIC |---|---|
+# MAGIC | Domain | Central de Atendimento |
+# MAGIC | Name | Protocolo da central |
+# MAGIC | Owner | você |
+# MAGIC | Synonyms | protocolo, contato, chamado, atendimento da central, SAC, FCR, CSAT, NPS |
+# MAGIC
+# MAGIC **Description:**
+# MAGIC ```
+# MAGIC Registro de um contato do paciente com a central da rede. Pode citar a guia, o atendimento ou a conta de que o
+# MAGIC paciente está falando.
+# MAGIC ```
+# MAGIC
+# MAGIC **Body:**
+# MAGIC ```
+# MAGIC Definição
+# MAGIC Todo contato (telefone, WhatsApp, chat, e-mail ou presencial) gera um protocolo em @protocolos, com assunto
+# MAGIC (@assuntos) e área responsável. Os campos autorizacao_id, atendimento_id e conta_id ligam a experiência do
+# MAGIC paciente ao hospital e ao faturamento. Parte dos protocolos resolvidos recebe pesquisa (@pesquisas_satisfacao).
+# MAGIC
+# MAGIC Atenção
+# MAGIC "Atendimento" na central é o protocolo. "Atendimento" no hospital é @atendimentos (PS, ambulatório, internação,
+# MAGIC oncologia). São coisas diferentes.
+# MAGIC
+# MAGIC Fórmulas oficiais (@mv_central)
+# MAGIC - FCR = protocolos resolvidos no primeiro contato ÷ protocolos.
+# MAGIC - CSAT = média da nota de 1 a 5.
+# MAGIC - NPS = % de promotores (9–10) menos % de detratores (0–6).
+# MAGIC
+# MAGIC Uso no negócio
+# MAGIC Reclamações de "Negativa de autorização" e "Cobrança indevida" têm o pior CSAT da central e quase sempre
+# MAGIC apontam para um problema de faturamento. Veja @Autorização prévia e @Acomodação do plano.
+# MAGIC ```
+# MAGIC
+# MAGIC **Related assets:** `mv_central`, `fato_protocolos`, `protocolos`, `pesquisas_satisfacao`, `assuntos`
+# MAGIC
+# MAGIC **Sources (optional):** Plataforma da central (schema `relacionamento` da origem).
+# MAGIC
+# MAGIC ---
+# MAGIC
+# MAGIC ## Page 5: Agente Ciclo de Receita
+# MAGIC
+# MAGIC | Campo | Valor |
+# MAGIC |---|---|
+# MAGIC | Domain | Faturamento e Glosa |
+# MAGIC | Name | Agente Ciclo de Receita |
+# MAGIC | Owner | você |
+# MAGIC | Synonyms | genie do ciclo de receita, genie de faturamento, assistente de glosa |
+# MAGIC
+# MAGIC **Description:**
+# MAGIC ```
+# MAGIC Página de apresentação do Genie Agent "Ciclo de Receita — Rede Américas": o que ele responde e de quais Metric
+# MAGIC Views certificadas ele parte.
+# MAGIC ```
+# MAGIC
+# MAGIC **Body:**
+# MAGIC ```
+# MAGIC Definição
+# MAGIC @Ciclo de Receita — Rede Américas é o Genie Agent de faturamento, glosa, autorização prévia e central de
+# MAGIC atendimento. Ele responde a partir de três Metric Views certificadas: @mv_faturamento_glosa,
+# MAGIC @mv_autorizacoes e @mv_central.
+# MAGIC
+# MAGIC Uso no negócio
+# MAGIC Pergunte, por exemplo:
+# MAGIC - "Por que a glosa subiu na Beta Assistência Médica?"
+# MAGIC - "Quais médicos geram mais glosa por preço acima do contratado?"
+# MAGIC - "Os pacientes que reclamaram de cobrança na central tinham qual plano?"
+# MAGIC
+# MAGIC Definições: @Glosa, @Autorização prévia, @Acomodação do plano, @Protocolo da central.
+# MAGIC ```
+# MAGIC
+# MAGIC **Related assets:** `Ciclo de Receita — Rede Américas`, `mv_faturamento_glosa`, `mv_autorizacoes`, `mv_central`
+# MAGIC
+# MAGIC **Sources (optional):** nenhuma; conteúdo escrito direto na Page.
+# MAGIC
+# MAGIC ---
+# MAGIC
+# MAGIC ## Notas (do repo original)
+# MAGIC - O campo **Domain** da Page é de seleção única: escolha onde alguém procuraria a definição.
+# MAGIC - Use a menção `@` do editor para ligar os ativos e as outras Pages. É isso que cria os *related assets* e
+# MAGIC   deixa o Genie One navegar entre elas.
+# MAGIC - **Publique** todas: rascunhos têm prioridade menor no ranking do Genie.

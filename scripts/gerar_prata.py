@@ -152,7 +152,8 @@ def q(s):
 
 blocos = ["""-- Camada PRATA (Lakeflow Spark Declarative Pipelines). GERADO por scripts/gerar_prata.py — não editar à mão.
 -- Uma materialized view por tabela da origem, com tipos explícitos, comentários, PK/FK informativas (as mesmas da
--- origem) e expectations. Configuration do pipeline: catalogo, bronze, prata.
+-- origem) e expectations. Configuration do pipeline: catalogo, bronze, prata. Os nomes são completos
+-- (${catalogo}.${prata}.tabela), então o catálogo e o schema padrão do pipeline não importam.
 """]
 for t in META:
     nome, cols, pk = t["tabela"], t["colunas"], [c["coluna"] for c in sorted(t["pk"], key=lambda x: x["o"])]
@@ -179,7 +180,7 @@ for t in META:
                   f"WHERE r.{fk['ref_coluna']} = CAST(b.{c['coluna']} AS {tipo(c)}))")
         filtros.append(f"(b.{c['coluna']} IS NULL OR {existe})" if c["nulo"] else existe)
     where = ("\nWHERE " + "\n  AND ".join(filtros)) if filtros else ""
-    blocos.append(f"-- {t['schema']}.{nome}\nCREATE OR REFRESH MATERIALIZED VIEW {nome} (\n" + ",\n".join(linhas)
+    blocos.append(f"-- {t['schema']}.{nome}\nCREATE OR REFRESH MATERIALIZED VIEW ${{catalogo}}.${{prata}}.{nome} (\n" + ",\n".join(linhas)
                   + f"\n)\nCOMMENT {q(t['descricao'])}\nAS SELECT {sel}\nFROM ${{catalogo}}.${{bronze}}.{nome} b{where};\n")
 
 SAIDA.parent.mkdir(exist_ok=True)

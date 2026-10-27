@@ -1,9 +1,10 @@
 -- Camada PRATA (Lakeflow Spark Declarative Pipelines). GERADO por scripts/gerar_prata.py — não editar à mão.
 -- Uma materialized view por tabela da origem, com tipos explícitos, comentários, PK/FK informativas (as mesmas da
--- origem) e expectations. Configuration do pipeline: catalogo, bronze, prata.
+-- origem) e expectations. Configuration do pipeline: catalogo, bronze, prata. Os nomes são completos
+-- (${catalogo}.${prata}.tabela), então o catálogo e o schema padrão do pipeline não importam.
 
 -- assistencial.atendimentos
-CREATE OR REFRESH MATERIALIZED VIEW atendimentos (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.atendimentos (
   atendimento_id BIGINT NOT NULL COMMENT 'Identificador do atendimento hospitalar.',
   paciente_id BIGINT NOT NULL COMMENT 'Paciente atendido.',
   beneficiario_id BIGINT NOT NULL COMMENT 'Carteirinha usada no atendimento (define plano e operadora).',
@@ -39,7 +40,7 @@ WHERE (b.autorizacao_id IS NULL OR EXISTS (SELECT 1 FROM ${catalogo}.${prata}.au
   AND EXISTS (SELECT 1 FROM ${catalogo}.${prata}.unidades r WHERE r.unidade_id = CAST(b.unidade_id AS STRING));
 
 -- assistencial.autorizacoes
-CREATE OR REFRESH MATERIALIZED VIEW autorizacoes (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.autorizacoes (
   autorizacao_id BIGINT NOT NULL COMMENT 'Número da guia de autorização prévia.',
   beneficiario_id BIGINT NOT NULL COMMENT 'Beneficiário (carteirinha) para quem a guia foi pedida.',
   medico_solicitante_id INT NOT NULL COMMENT 'Médico que pediu a autorização.',
@@ -72,7 +73,7 @@ WHERE EXISTS (SELECT 1 FROM ${catalogo}.${prata}.beneficiarios r WHERE r.benefic
   AND EXISTS (SELECT 1 FROM ${catalogo}.${prata}.unidades r WHERE r.unidade_id = CAST(b.unidade_id AS STRING));
 
 -- cadastro.beneficiarios
-CREATE OR REFRESH MATERIALIZED VIEW beneficiarios (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.beneficiarios (
   beneficiario_id BIGINT NOT NULL COMMENT 'Identificador do vínculo paciente × plano.',
   paciente_id BIGINT NOT NULL COMMENT 'Paciente titular da carteirinha.',
   plano_id STRING NOT NULL COMMENT 'Plano contratado.',
@@ -96,7 +97,7 @@ WHERE EXISTS (SELECT 1 FROM ${catalogo}.${prata}.pacientes r WHERE r.paciente_id
   AND EXISTS (SELECT 1 FROM ${catalogo}.${prata}.planos r WHERE r.plano_id = CAST(b.plano_id AS STRING));
 
 -- cadastro.cids
-CREATE OR REFRESH MATERIALIZED VIEW cids (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.cids (
   cid STRING NOT NULL COMMENT 'Código CID-10.',
   descricao STRING NOT NULL COMMENT 'Descrição.',
   capitulo STRING NOT NULL COMMENT 'Capítulo da CID-10.',
@@ -111,7 +112,7 @@ AS SELECT CAST(b.cid AS STRING) AS cid,
 FROM ${catalogo}.${bronze}.cids b;
 
 -- cadastro.especialidades
-CREATE OR REFRESH MATERIALIZED VIEW especialidades (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.especialidades (
   especialidade_id STRING NOT NULL COMMENT 'Código da especialidade médica.',
   nome STRING NOT NULL COMMENT 'Nome.',
   atualizado_em TIMESTAMP NOT NULL COMMENT 'Data e hora (UTC) da última alteração do registro no sistema de origem.',
@@ -124,7 +125,7 @@ AS SELECT CAST(b.especialidade_id AS STRING) AS especialidade_id,
 FROM ${catalogo}.${bronze}.especialidades b;
 
 -- cadastro.medicos
-CREATE OR REFRESH MATERIALIZED VIEW medicos (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.medicos (
   medico_id INT NOT NULL COMMENT 'Identificador do médico no corpo clínico.',
   nome STRING NOT NULL COMMENT 'Nome.',
   crm STRING NOT NULL COMMENT 'Número do CRM (fictício).',
@@ -147,7 +148,7 @@ WHERE EXISTS (SELECT 1 FROM ${catalogo}.${prata}.especialidades r WHERE r.especi
   AND EXISTS (SELECT 1 FROM ${catalogo}.${prata}.unidades r WHERE r.unidade_id = CAST(b.unidade_id AS STRING));
 
 -- cadastro.operadoras
-CREATE OR REFRESH MATERIALIZED VIEW operadoras (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.operadoras (
   operadora_id STRING NOT NULL COMMENT 'Código da operadora de plano de saúde (fonte pagadora).',
   nome STRING NOT NULL COMMENT 'Nome.',
   registro_ans STRING NOT NULL COMMENT 'Registro da operadora na ANS (fictício).',
@@ -164,7 +165,7 @@ AS SELECT CAST(b.operadora_id AS STRING) AS operadora_id,
 FROM ${catalogo}.${bronze}.operadoras b;
 
 -- cadastro.pacientes
-CREATE OR REFRESH MATERIALIZED VIEW pacientes (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.pacientes (
   paciente_id BIGINT NOT NULL COMMENT 'Identificador único do paciente na rede.',
   nome STRING NOT NULL COMMENT 'Nome do paciente (sintético).',
   cpf STRING NOT NULL COMMENT 'CPF do paciente (sintético, com dígitos válidos).',
@@ -187,7 +188,7 @@ AS SELECT CAST(b.paciente_id AS BIGINT) AS paciente_id,
 FROM ${catalogo}.${bronze}.pacientes b;
 
 -- cadastro.planos
-CREATE OR REFRESH MATERIALIZED VIEW planos (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.planos (
   plano_id STRING NOT NULL COMMENT 'Código do plano.',
   operadora_id STRING NOT NULL COMMENT 'Operadora dona do plano.',
   nome STRING NOT NULL COMMENT 'Nome.',
@@ -207,7 +208,7 @@ FROM ${catalogo}.${bronze}.planos b
 WHERE EXISTS (SELECT 1 FROM ${catalogo}.${prata}.operadoras r WHERE r.operadora_id = CAST(b.operadora_id AS STRING));
 
 -- cadastro.precos_contratados
-CREATE OR REFRESH MATERIALIZED VIEW precos_contratados (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.precos_contratados (
   operadora_id STRING NOT NULL COMMENT 'Operadora do contrato.',
   procedimento_id STRING NOT NULL COMMENT 'Procedimento precificado.',
   vigencia_inicio DATE NOT NULL COMMENT 'Início da vigência do preço.',
@@ -229,7 +230,7 @@ WHERE EXISTS (SELECT 1 FROM ${catalogo}.${prata}.operadoras r WHERE r.operadora_
   AND EXISTS (SELECT 1 FROM ${catalogo}.${prata}.procedimentos r WHERE r.procedimento_id = CAST(b.procedimento_id AS STRING));
 
 -- cadastro.procedimentos
-CREATE OR REFRESH MATERIALIZED VIEW procedimentos (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.procedimentos (
   procedimento_id STRING NOT NULL COMMENT 'Código do procedimento no padrão TUSS (fictício).',
   descricao STRING NOT NULL COMMENT 'Descrição.',
   grupo STRING NOT NULL COMMENT 'CONSULTA, EXAME, PROCEDIMENTO, MATERIAL, OPME, MEDICAMENTO, DIARIA ou TAXA.',
@@ -246,7 +247,7 @@ AS SELECT CAST(b.procedimento_id AS STRING) AS procedimento_id,
 FROM ${catalogo}.${bronze}.procedimentos b;
 
 -- cadastro.unidades
-CREATE OR REFRESH MATERIALIZED VIEW unidades (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.unidades (
   unidade_id STRING NOT NULL COMMENT 'Código da unidade da rede (U01 a U04).',
   nome STRING NOT NULL COMMENT 'Nome.',
   tipo STRING NOT NULL COMMENT 'HOSPITAL, ONCOLOGIA ou AMBULATORIO.',
@@ -267,7 +268,7 @@ AS SELECT CAST(b.unidade_id AS STRING) AS unidade_id,
 FROM ${catalogo}.${bronze}.unidades b;
 
 -- faturamento.contas
-CREATE OR REFRESH MATERIALIZED VIEW contas (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.contas (
   conta_id BIGINT NOT NULL COMMENT 'Identificador da conta hospitalar.',
   atendimento_id BIGINT NOT NULL COMMENT 'Atendimento faturado (uma conta por atendimento).',
   operadora_id STRING NOT NULL COMMENT 'Operadora cobrada.',
@@ -293,7 +294,7 @@ WHERE EXISTS (SELECT 1 FROM ${catalogo}.${prata}.atendimentos r WHERE r.atendime
   AND EXISTS (SELECT 1 FROM ${catalogo}.${prata}.operadoras r WHERE r.operadora_id = CAST(b.operadora_id AS STRING));
 
 -- faturamento.glosas
-CREATE OR REFRESH MATERIALIZED VIEW glosas (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.glosas (
   glosa_id BIGINT NOT NULL COMMENT 'Identificador da glosa.',
   item_id BIGINT NOT NULL COMMENT 'Item da conta glosado.',
   motivo_glosa_id STRING NOT NULL COMMENT 'Motivo informado pela operadora.',
@@ -315,7 +316,7 @@ WHERE EXISTS (SELECT 1 FROM ${catalogo}.${prata}.itens_conta r WHERE r.item_id =
   AND EXISTS (SELECT 1 FROM ${catalogo}.${prata}.motivos_glosa r WHERE r.motivo_glosa_id = CAST(b.motivo_glosa_id AS STRING));
 
 -- faturamento.itens_conta
-CREATE OR REFRESH MATERIALIZED VIEW itens_conta (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.itens_conta (
   item_id BIGINT NOT NULL COMMENT 'Identificador do item da conta.',
   conta_id BIGINT NOT NULL COMMENT 'Conta a que o item pertence.',
   procedimento_id STRING NOT NULL COMMENT 'Procedimento, material, medicamento, diária ou taxa cobrado.',
@@ -345,7 +346,7 @@ WHERE EXISTS (SELECT 1 FROM ${catalogo}.${prata}.contas r WHERE r.conta_id = CAS
   AND EXISTS (SELECT 1 FROM ${catalogo}.${prata}.procedimentos r WHERE r.procedimento_id = CAST(b.procedimento_id AS STRING));
 
 -- faturamento.motivos_glosa
-CREATE OR REFRESH MATERIALIZED VIEW motivos_glosa (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.motivos_glosa (
   motivo_glosa_id STRING NOT NULL COMMENT 'Código do motivo de glosa no padrão TISS (fictício).',
   descricao STRING NOT NULL COMMENT 'Descrição.',
   categoria STRING NOT NULL COMMENT 'AUTORIZACAO, PRECO, ELEGIBILIDADE, TECNICA ou ADMINISTRATIVA.',
@@ -360,7 +361,7 @@ AS SELECT CAST(b.motivo_glosa_id AS STRING) AS motivo_glosa_id,
 FROM ${catalogo}.${bronze}.motivos_glosa b;
 
 -- faturamento.pagamentos
-CREATE OR REFRESH MATERIALIZED VIEW pagamentos (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.pagamentos (
   pagamento_id BIGINT NOT NULL COMMENT 'Identificador do pagamento.',
   conta_id BIGINT NOT NULL COMMENT 'Conta paga.',
   data_pagamento DATE NOT NULL COMMENT 'Data do crédito.',
@@ -379,7 +380,7 @@ FROM ${catalogo}.${bronze}.pagamentos b
 WHERE EXISTS (SELECT 1 FROM ${catalogo}.${prata}.contas r WHERE r.conta_id = CAST(b.conta_id AS BIGINT));
 
 -- faturamento.recursos_glosa
-CREATE OR REFRESH MATERIALIZED VIEW recursos_glosa (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.recursos_glosa (
   recurso_id BIGINT NOT NULL COMMENT 'Identificador do recurso.',
   glosa_id BIGINT NOT NULL COMMENT 'Glosa contestada.',
   data_recurso DATE NOT NULL COMMENT 'Data de envio do recurso.',
@@ -400,7 +401,7 @@ FROM ${catalogo}.${bronze}.recursos_glosa b
 WHERE EXISTS (SELECT 1 FROM ${catalogo}.${prata}.glosas r WHERE r.glosa_id = CAST(b.glosa_id AS BIGINT));
 
 -- relacionamento.assuntos
-CREATE OR REFRESH MATERIALIZED VIEW assuntos (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.assuntos (
   assunto_id STRING NOT NULL COMMENT 'Código do assunto do protocolo.',
   nome STRING NOT NULL COMMENT 'Nome.',
   area STRING NOT NULL COMMENT 'Área responsável: AUTORIZACAO, FATURAMENTO, AGENDAMENTO, RESULTADO ou OUVIDORIA.',
@@ -415,7 +416,7 @@ AS SELECT CAST(b.assunto_id AS STRING) AS assunto_id,
 FROM ${catalogo}.${bronze}.assuntos b;
 
 -- relacionamento.canais
-CREATE OR REFRESH MATERIALIZED VIEW canais (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.canais (
   canal_id STRING NOT NULL COMMENT 'Código do canal: TEL, WHATSAPP, CHAT, EMAIL ou PRESENCIAL.',
   nome STRING NOT NULL COMMENT 'Nome.',
   atualizado_em TIMESTAMP NOT NULL COMMENT 'Data e hora (UTC) da última alteração do registro no sistema de origem.',
@@ -428,7 +429,7 @@ AS SELECT CAST(b.canal_id AS STRING) AS canal_id,
 FROM ${catalogo}.${bronze}.canais b;
 
 -- relacionamento.pesquisas_satisfacao
-CREATE OR REFRESH MATERIALIZED VIEW pesquisas_satisfacao (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.pesquisas_satisfacao (
   pesquisa_id BIGINT NOT NULL COMMENT 'Identificador da pesquisa.',
   protocolo_id BIGINT NOT NULL COMMENT 'Protocolo avaliado.',
   data_resposta TIMESTAMP NOT NULL COMMENT 'Data e hora da resposta.',
@@ -450,7 +451,7 @@ FROM ${catalogo}.${bronze}.pesquisas_satisfacao b
 WHERE EXISTS (SELECT 1 FROM ${catalogo}.${prata}.protocolos r WHERE r.protocolo_id = CAST(b.protocolo_id AS BIGINT));
 
 -- relacionamento.protocolos
-CREATE OR REFRESH MATERIALIZED VIEW protocolos (
+CREATE OR REFRESH MATERIALIZED VIEW ${catalogo}.${prata}.protocolos (
   protocolo_id BIGINT NOT NULL COMMENT 'Número do protocolo da central.',
   paciente_id BIGINT NOT NULL COMMENT 'Paciente que entrou em contato.',
   canal_id STRING NOT NULL COMMENT 'Canal do contato.',

@@ -1,0 +1,39 @@
+# Databricks notebook source
+# MAGIC %md
+# MAGIC # 06 - Limpeza: apagar os ativos SQL da demo
+# MAGIC
+# MAGIC Diferente do repo original, **não apaga o catálogo**: `rede_americas_demo` é compartilhado com as outras demos
+# MAGIC (pode ter outras demos). Apaga só os quatro schemas `ontologia_*`, com tabelas, materialized views e
+# MAGIC Metric Views.
+# MAGIC
+# MAGIC **Antes**, apague na UI (**Jobs & Pipelines**) os pipelines `ont_medalhao`, `ont_ingestao` e `ont_gateway`. Se
+# MAGIC recriar um pipeline sem limpar as tabelas, o SDP recusa com "table is already managed by pipeline".
+# MAGIC
+# MAGIC **Não apaga** o que foi criado à mão (sem API pública confirmada):
+# MAGIC - o Genie Agent;
+# MAGIC - os 4 domínios (podem ficar: são só governed tags);
+# MAGIC - as 5 Pages;
+# MAGIC - a conexão, se você criou uma nova.
+# MAGIC
+# MAGIC O banco de origem no Azure continua existindo. Para apagá-lo:
+# MAGIC `az sql db delete -g <seu-resource-group> -s <seu-servidor> -n rede_americas_ontologia`.
+# MAGIC
+# MAGIC ## Trava de segurança
+# MAGIC Destrutivo: digite `DELETE` no widget `confirm` antes de rodar a célula abaixo.
+
+# COMMAND ----------
+
+# MAGIC %run ./00_config
+
+# COMMAND ----------
+
+dbutils.widgets.text("confirm", "", "Digite DELETE para confirmar")
+confirm = dbutils.widgets.get("confirm")
+
+if confirm != "DELETE":
+    print(f"Cancelado: o widget confirm tem '{confirm}', esperado 'DELETE'. Nada foi apagado.")
+else:
+    for s in (S_OURO, S_PRATA, S_BRONZE, S_STAGING):
+        spark.sql(f"DROP SCHEMA IF EXISTS {CATALOG}.{s} CASCADE")
+        print("Apagado", f"{CATALOG}.{s}")
+    print("Lembrete: Genie Agent, domínios e Pages continuam; apague na UI se quiser começar do zero.")

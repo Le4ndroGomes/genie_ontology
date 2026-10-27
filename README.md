@@ -1,5 +1,10 @@
 # Genie Ontology - Making Genie One Answers more Reliable
 
+> **Fork com um segundo caso:** [`rede_americas/`](rede_americas/) aplica a mesma estrutura (notebooks 00–06) a um
+> caso de ciclo de receita hospitalar (Rede Américas, dados sintéticos). A origem é um banco relacional (Azure SQL),
+> ingerido com Lakeflow Connect e tratado num medalhão SDP com PK/FK. Veja `rede_americas/README.md` e
+> `rede_americas/ROTEIRO.md`.
+
 A working demo of Databricks **Genie One** backed by a hand-modeled **Genie
 Ontology** (Unity Catalog semantics: metric views, domains, pages, certification)
 on top of a small star-schema retail dataset.

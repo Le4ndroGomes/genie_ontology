@@ -1,203 +1,223 @@
-# Genie Ontology para faturamento hospitalar e gestão de glosas — Rede Américas
+# Genie Ontology - Making Genie One Answers more Reliable
 
-Demo de **Genie One** sobre uma **Genie Ontology** governada: Metric Views, domínios, Pages e certificação no Unity
-Catalog. A origem é um SQL Server ingerido com **Lakeflow Connect**. O caso é o faturamento hospitalar e a gestão de
-glosas da Rede Américas, com **dados 100% sintéticos**.
+A working demo of Databricks **Genie One** backed by a hand-modeled **Genie
+Ontology** (Unity Catalog semantics: metric views, domains, pages, certification)
+on top of a small star-schema retail dataset.
 
-A demo mostra a diferença entre a mesma pergunta feita a um Genie **sem contexto semântico** (tabelas cruas) e a um
-agente **apoiado na ontologia** (definições oficiais, regras de negócio, ativos certificados e citações).
+The notebooks build a self-contained "Northwind Retail" sales & customer
+analytics use case, then walk you through pointing Genie One at it so you can
+see, question by question, how certified metric views, domains, and pages
+change the quality and traceability of Genie's answers.
 
-Adaptado de [databeli/genie_ontology](https://github.com/databeli/genie_ontology): mesma sequência `00_config` →
-`06_cleanup`, com o mesmo papel em cada notebook. A diferença está no 01: aqui os dados vêm de uma origem relacional,
-em vez de serem gerados no notebook.
+## How the pieces fit
 
-## Objetivo e contexto
+- **Genie One** is Databricks' full-screen natural-language chat. On a
+  question it searches, in order: (1) existing **Genie Agents**, then (2)
+  dashboards/queries/metric views — answering using the **Genie Ontology**:
+  - *Modeled context* — metric views, domains, pages — curated and certified
+    by humans (what this demo builds).
+  - *Inferred context* — metadata, usage, freshness — pulled automatically
+    from existing assets.
+  - Every answer snippet gets an authority score (source, usage, freshness),
+    and responses are permission-gated to what the asking user can see.
+- **Metric views** define measures once (revenue, order count, …), separate
+  from dimensions, and are queried like tables from SQL, notebooks,
+  dashboards, and Genie.
+- **Domains** are a browsing layer backed by a governed tag — assets get
+  tagged into a domain so they show up on the Discover page grouped by
+  business purpose.
+- **Pages** are governed definitions of a business term/KPI/concept, with
+  related-asset links and a rich-text body. Genie One reads published pages
+  as authoritative context, ahead of inferred context.
+- **Certification** (`certified` / `deprecated`) applies to catalogs, schemas,
+  tables, views, volumes, functions, models, dashboards, Genie Agents, apps,
+  and notebooks. Certified assets rank higher in Genie One's answers.
 
-A glosa é o valor que a operadora se recusa a pagar numa conta hospitalar. Medir glosa parece trivial e não é:
+Reference docs: [Genie One chat](https://docs.databricks.com/aws/en/genie-one/chat) ·
+[UC semantics overview](https://docs.databricks.com/aws/en/uc-semantics/) ·
+[Metric views](https://docs.databricks.com/aws/en/uc-semantics/metric-views/) ·
+[Domains](https://docs.databricks.com/aws/en/uc-semantics/domains) ·
+[Pages](https://docs.databricks.com/aws/en/uc-semantics/pages) ·
+[Certify/deprecate](https://docs.databricks.com/aws/en/data-governance/unity-catalog/certify-deprecate-data)
 
-- A **taxa de glosa** só faz sentido sobre contas **já analisadas** pela operadora. Contas recentes ainda não tiveram
-  glosa aplicada; incluí-las no denominador puxa a taxa para baixo e cria uma "queda" falsa nos últimos meses.
-- A causa está em outros domínios: a guia de autorização negada, o preço contratado vigente, a acomodação do plano.
+## Prerequisites
 
-A ontologia carrega essas regras uma vez (Metric Views + Pages) e o Genie passa a responder com a definição oficial,
-citando a fonte.
+- A Databricks workspace with Unity Catalog enabled and a SQL warehouse
+  (serverless is fine).
+- Permission to create a catalog/schema, create metric views, and use Genie
+  One / Genie Agents in that workspace.
+- No local setup required — everything runs as Databricks notebooks inside
+  the workspace. You just need to import this folder as a Workspace/Repo
+  folder and open the notebooks from there.
 
-## Arquitetura e modelo de dados
+## Repo contents
 
-```
-SQL Server (Azure SQL, 22 tabelas, 33 FKs, change tracking)
-   │  Lakeflow Connect: gateway (workspace clássico) ou Integrated CDC (workspace só serverless)
-   ▼
-ontologia_bronze ── cópia fiel, SCD1
-   │  pipeline SDP ont_medalhao
-   ▼
-ontologia_prata ─── 22 MVs tipadas: PK/FK informativas, COMMENT em tabelas e colunas, 13 expectations,
-   │                integridade referencial
-   ▼
-ontologia_ouro ──── fato_itens_faturados (grão: item da conta)
-   │
-   ├── mv_faturamento ─┐
-   ├── mv_glosas ──────┼── Genie Agent "Faturamento e Glosas — Rede Américas" ── Genie One
-   └── mv_recuperacao ─┘         + domínios, Pages e certificação (contexto modelado)
-```
-
-Relacionamentos principais da prata (FKs declaradas):
-
-| De | Para |
-|---|---|
-| `itens_conta.conta_id` | `contas` |
-| `contas.atendimento_id` | `atendimentos` |
-| `atendimentos.beneficiario_id` → `beneficiarios.plano_id` | `planos` → `operadoras` |
-| `atendimentos.medico_responsavel_id` | `medicos` → `especialidades`, `unidades` |
-| `itens_conta.procedimento_id` | `procedimentos` |
-| `glosas.item_id` / `glosas.motivo_glosa_id` | `itens_conta` / `motivos_glosa` |
-| `recursos_glosa.glosa_id` | `glosas` |
-| `precos_contratados (operadora_id, procedimento_id, vigencia_inicio)` | preço vigente por item |
-
-As outras tabelas da origem (autorizações e central de atendimento) são ingeridas e ficam na prata, mas estão fora do
-escopo desta demo.
-
-### Metric Views (fonte: `fato_itens_faturados`)
-
-| Metric View | Medidas | Regra de negócio |
+| File | What it does | How you run it |
 |---|---|---|
-| `mv_faturamento` | `valor_faturado`, `valor_faturado_analisado`, `contas`, `itens`, `ticket_medio_conta` | Faturado analisado = contas com status PAGA ou GLOSADA_PARCIAL |
-| `mv_glosas` | `valor_glosado`, `taxa_glosa`, `itens_glosados`, `contas_glosadas`, `sobrepreco` | **taxa_glosa = glosado ÷ faturado das contas analisadas** |
-| `mv_recuperacao` | `valor_recuperado`, `taxa_recuperacao`, `itens_recursados`, `taxa_recurso`, `taxa_aceite` | taxa_recuperacao = recuperado ÷ glosado |
+| [`00_config.py`](00_config.py) | Widgets for catalog/schema name, shared by every other notebook via `%run` | Not run directly |
+| [`01_create_catalog_schema_tables.py`](01_create_catalog_schema_tables.py) | Creates the catalog, schema, and 7 tables (with comments + PK/FK constraints); generates and loads a rolling ~2 years of synthetic data | **Run in Databricks** |
+| [`02_create_metric_views.py`](02_create_metric_views.py) | Creates 3 metric views with full semantic metadata (display names, synonyms, formats) | **Run in Databricks** |
+| [`03_genie_agent_setup.py`](03_genie_agent_setup.py) | Reference only — name/description/instructions/sample questions to paste into the Genie One "Create Agent" UI | Read, don't run |
+| [`04_apply_certification_and_domains.py`](04_apply_certification_and_domains.py) | Certifies and domain-tags every table and metric view via SQL `SET TAG`/`SET TAGS` | **Run in Databricks** |
+| [`05_pages_content.py`](05_pages_content.py) | Reference only — content for all 3 Pages (Name/Owner/Domain/Synonyms/Description/Body/Related assets/Sources), matching the Page creation UI form fields exactly | Read, don't run |
+| [`06_cleanup_delete_all_assets.py`](06_cleanup_delete_all_assets.py) | Drops the demo catalog (schema + tables + metric views) so you can rebuild from scratch; requires typing `DELETE` in a widget as a confirmation guard | **Run in Databricks** |
 
-Dimensões comuns: `mes`, `trimestre`, `ano`, `operadora`, `plano`, `acomodacao_plano`, `unidade`, `medico`,
-`especialidade`, `procedimento`, `grupo_procedimento`, `tipo_atendimento`. Nas Metric Views de glosa e de
-recuperação também há `motivo_glosa`, `categoria_glosa`, `status_recurso` e `conta_analisada`. Todas trazem
-`display_name`, `comment` e `synonyms` (YAML 1.1).
+Both notebook widgets default to catalog `genie_ontology_demo` / schema
+`retail_demo` — override them in the widget bar if you want different names.
 
-### Ontologia
+## Business use case & data model
 
-| Camada | O que é criado |
-|---|---|
-| Genie Agent | "Faturamento e Glosas — Rede Américas": as 3 Metric Views + instruções. Também o baseline "Faturamento — sem contexto (baseline)", só com tabelas do bronze, para o antes × depois |
-| Domínios | `Faturamento Hospitalar`, `Glosas e Recuperação`, `Cadastro Assistencial` |
-| Pages | "Taxa de glosa", "Glosa hospitalar", "Taxa de recuperação", "Agente Faturamento e Glosas" |
-| Certificação | Prata, fato e Metric Views via `SET TAGS` (notebook 04). O agente é certificado à mão |
-| Metadados | Comentários de tabela e coluna, sinônimos nas Metric Views, PK/FK na prata |
+**"Northwind Retail" sales & customer analytics** — a small, self-contained
+star schema so the resulting Genie answers are easy to sanity-check by eye.
 
-## Estrutura do repositório
+Tables (`<catalog>.retail_demo`):
 
-| Arquivo | O que faz | Como roda |
+| Table | Type | Key columns |
 |---|---|---|
-| `00_config.py` | Widgets `catalog_name` (padrão `rede_americas`) e `prefixo_schema` (`ontologia`) | `%run` pelos demais |
-| `01_ingestao_e_medalhao.py` | Roteiro do Lakeflow Connect (UI no clássico; célula B'.1 com Integrated CDC no serverless), criação dos schemas e conferência de bronze, prata e ouro | Databricks |
-| `02_create_metric_views.py` | Cria as 3 Metric Views e valida as 5 respostas da demo contra SQL determinístico na prata | Databricks |
-| `03_genie_agent_setup.py` | Textos do agente e do baseline (nome, descrição, instruções, perguntas) | Referência para a UI |
-| `04_apply_certification_and_domains.py` | Certificação e tags de domínio via SQL (idempotente) | Databricks |
-| `05_pages_content.py` | Conteúdo das 4 Pages, campo a campo | Referência para a UI |
-| `06_cleanup_delete_all_assets.py` | Apaga os schemas `ontologia_*` (exige `DELETE` no widget) | Databricks |
-| `pipeline/01_prata_so_pk.sql`, `pipeline/01_prata.sql` | Prata, fase 1 (só PK) e fase 2 (PK + FK) | Pipeline SDP |
-| `pipeline/02_ouro.sql` | `fato_itens_faturados` | Pipeline SDP |
-| `azure_sql/` | DDL, gerador de dados (seed 42), login, utility script v1.7 e preparo de change tracking | `sqlcmd` |
-| `scripts/gerar_prata.py` | Gera os `01_prata*.sql` a partir dos metadados da origem | Local |
+| `dim_date` | dimension | date_key, calendar_date, year, quarter, month, month_name, day_of_week, is_weekend |
+| `dim_product` | dimension | product_key, sku, product_name, category, brand, unit_cost |
+| `dim_customer` | dimension | customer_key, customer_name, segment, region, signup_date |
+| `dim_store` | dimension | store_key, store_name, region, channel (Online/In-Store) |
+| `fact_sales` | fact | order_id, date_key, product_key, customer_key, store_key, quantity, unit_price, revenue |
+| `fact_returns` | fact | return_id, order_id, date_key, product_key, customer_key, quantity, return_amount, return_reason |
+| `fact_inventory` | fact | snapshot_date_key, product_key, store_key, stock_on_hand, stock_received |
 
-## Pré-requisitos e implantação
+Every table and column has a `COMMENT`; PK constraints on every table, and FK
+constraints on every fact→dimension relationship (plus
+`fact_returns.order_id → fact_sales.order_id`). The date range is computed at
+run time (rolling ~2 years ending today), so re-running
+`01_create_catalog_schema_tables.py` periodically keeps the data fresh.
 
-**Origem (uma vez, ~30 min).** Serve qualquer SQL Server com change tracking; a demo foi testada num Azure SQL
-Database serverless.
+### Metric views
 
-```bash
-az sql server create -g <seu-resource-group> -n <seu-servidor> -l <regiao> -u <admin> -p '<senha-admin>'
-az sql db create -g <seu-resource-group> -s <seu-servidor> -n rede_americas_ontologia \
-  --edition GeneralPurpose --compute-model Serverless --family Gen5 --capacity 1 --auto-pause-delay 60
-az sql server firewall-rule create -g <seu-resource-group> -s <seu-servidor> -n workspace \
-  --start-ip-address <IP de saída do workspace> --end-ip-address <IP de saída do workspace>
+1. **`mv_sales_performance`** — `fact_sales` joined to `dim_date`,
+   `dim_product`, `dim_customer`, `dim_store`.
+   Measures: `total_revenue`, `total_units_sold`, `order_count`,
+   `avg_order_value`. Dimensions: order date/year/quarter/month,
+   product category/brand, customer segment/region, store region/channel.
+2. **`mv_customer_returns`** — `fact_returns` joined to `dim_date`,
+   `dim_product`, `dim_customer`.
+   Measures: `return_count`, `units_returned`, `return_amount`. Dimensions:
+   return date/year/quarter, product category, return reason, customer segment.
+3. **`mv_inventory_health`** — `fact_inventory` joined to `dim_date`,
+   `dim_product`, `dim_store`.
+   Measures: `avg_stock_on_hand`, `total_units_received`,
+   `low_stock_snapshot_count`. Dimensions: snapshot date/month, product
+   category, store region.
 
-cd azure_sql && python3 gerar_dados.py            # gera 02_dados.sql (~90 mil linhas, determinístico)
-S="-S tcp:<seu-servidor>.database.windows.net,1433 -U <admin>"
-sqlcmd $S -d master -i 00_login_master.sql        # troque a senha no arquivo antes
-for f in 01_ddl.sql 02_dados.sql lakeflow_utility_script.sql 03_preparar_lakeflow_connect.sql; do
-  sqlcmd $S -d rede_americas_ontologia -i $f; done # o último deve listar 22 tabelas
-```
+> **Return rate is deliberately not a stored measure.** It needs
+> `fact_returns` and `fact_sales` together, and a metric view's measures can
+> only aggregate its own source + joined dimensions. Genie answers "what's our
+> return rate" by combining `mv_customer_returns.return_amount` with
+> `mv_sales_performance.total_revenue` — the formula is documented explicitly
+> in the "Customer Return Rate" Page so Genie has an authoritative source to
+> cite instead of guessing.
 
-**Workspace:**
-- Unity Catalog e um SQL warehouse serverless. Permissões `CREATE CONNECTION` (ou `USE CONNECTION`), `CREATE SCHEMA` e
-  `CREATE MATERIALIZED VIEW`.
-- **Catálogo de destino com storage próprio.** O Lakeflow Connect recusa catálogos com Default Storage. Se o padrão do
-  workspace for Default Storage, crie um catálogo com storage próprio:
-  `CREATE CATALOG rede_americas MANAGED LOCATION 's3://<bucket-da-external-location>/rede_americas'`.
-- **Rede.**
-  - Workspace clássico: libere no firewall o IP de saída (NAT) do compute clássico.
-  - Workspace só serverless: libere o IP de saída do serverless. Para descobrir, rode um notebook serverless que lê
-    `https://api.ipify.org`. Ele pode variar dentro de um bloco, então libere o `/24`.
-- **Pages** está em Beta e precisa ser habilitada por um account admin em *Account console → Previews*.
+### Genie Agent
 
-## Passo a passo (~1h, com a origem pronta)
+**`Retail Analytics Genie`** — one agent given all three metric views as its
+data sources, plus custom instructions and sample questions. Exact
+name/description/instructions text to paste in is in
+[`03_genie_agent_setup.py`](03_genie_agent_setup.py).
 
-| # | Passo | Tempo |
-|---|---|---|
-| 1 | Clone o repo como **Git folder**. Em todos os notebooks, `catalog_name = rede_americas` (o widget guarda o último valor) | 2 min |
-| 2 | `01`, célula **B.1**: cria os schemas `ontologia_staging`, `_bronze`, `_prata` e `_ouro` | 1 min |
-| 3 | **Ingestão.** No clássico, pela UI: **Data Ingestion → SQL Server** → conexão → gateway `ont_gateway` + pipeline `ont_ingestao` (staging em `ontologia_staging`, destino `ontologia_bronze`, schemas `cadastro`, `assistencial`, `faturamento`, `relacionamento`, sem `dbo`). No serverless: célula **B'.1** (Integrated CDC por API). Depois, célula **B.2**: 22 tabelas OK | 15 min |
-| 4 | **Medalhão.** **Jobs & Pipelines → Create → ETL pipeline** `ont_medalhao`, serverless. Catálogo padrão = `rede_americas`, schema `ontologia_prata`. Configuration: `catalogo=rede_americas`, `bronze=ontologia_bronze`, `prata=ontologia_prata`, `ouro=ontologia_ouro` | 5 min |
-| 5 | **Fase 1:** source `01_prata_so_pk.sql` + `02_ouro.sql` → Run → célula **C.1** (22 PKs) | 5 min |
-| 6 | **Fase 2:** troque por `01_prata.sql` e **apague o `_so_pk` da pasta do pipeline** → Run → **C.1** (22 PKs + 33 FKs) | 5 min |
-| 7 | `02_create_metric_views`: cria as 3 Metric Views; as células de validação precisam passar | 3 min |
-| 8 | Crie na UI os 2 Genie spaces (baseline e agente), com os textos do `03` | 8 min |
-| 9 | Faça as 5 perguntas no **baseline** e anote as respostas | 5 min |
-| 10 | Crie os 3 domínios (**Discover → Create domain**, nomes exatos) → rode o `04` → certifique o agente à mão e coloque-o em `Faturamento Hospitalar` | 5 min |
-| 11 | Crie as 4 Pages do `05` (use `@` para ligar os ativos) e publique | 10 min |
-| 12 | Repita as 5 perguntas no agente e no **Genie One**, conferindo as citações | 10 min |
+### Domains (4, no subdomains)
 
-## Configurações manuais (só UI)
-
-| Item | Onde |
+| Domain | Assigned to |
 |---|---|
-| Conexão SQL Server | Catalog → External data → Connections |
-| Gateway + pipeline de ingestão (clássico) | Data Ingestion → SQL Server. No serverless, a célula B'.1 usa a API |
-| Pipeline do medalhão | Jobs & Pipelines → Create → ETL pipeline |
-| Genie spaces (agente e baseline) | Genie → New, ou Genie One → Create Agent |
-| Domínios (criar e publicar) | Discover → Create domain |
-| Certificação e domínio do agente | ⋮ do agente → Assign certification |
-| Pages | Discover → Pages → Create page |
+| `Sales` | `dim_product`, `dim_store`, `fact_sales`, `mv_sales_performance`, `Retail Analytics Genie` |
+| `Customer` | `dim_customer`, `fact_returns`, `mv_customer_returns` |
+| `Supply Chain` | `dim_store`, `fact_inventory`, `mv_inventory_health` |
+| `Finance` | `fact_sales`, `mv_sales_performance` |
 
-O resto é SQL nos notebooks: schemas, Metric Views, certificação e tags das tabelas, validações e cleanup.
+Assets can belong to more than one domain (e.g. `dim_store` is both `Sales`
+and `Supply Chain`). The domain governed tag is a **key-only tag whose key is
+the exact domain name** — create the 4 domains in the UI with these exact
+names and `04_apply_certification_and_domains.py` will tag everything
+automatically, no manual tag-key lookup needed.
 
-## Perguntas da demo e resultados esperados
+### Pages (3)
 
-Os números vêm de dados sintéticos com seed fixa e são conferidos pelo notebook `02` contra SQL determinístico.
+Full content for all three, matching the Page creation form fields exactly,
+is in [`05_pages_content.py`](05_pages_content.py):
 
-| # | Pergunta | Resposta governada (agente) | O que o baseline costuma errar | Camada citada |
-|---|---|---|---|---|
-| 1 | Qual a taxa de glosa da rede nos últimos 12 meses? | **3,21%** (R$ 1,06 mi glosados ÷ R$ 32,9 mi de faturado analisado) | ~2,86%: divide pelo faturado total, incluindo contas não analisadas | Page "Taxa de glosa" + `mv_glosas` |
-| 2 | Como evoluiu a taxa de glosa mês a mês? | Sobe de 1,75% (nov/25) a 4,69% (ago/26). Set/26: 6,05%, com só 51% das contas analisadas. Out/26: sem contas analisadas, não é 0% | Mostra queda falsa: 2,87% em set e 0% em out | `mv_glosas` (`conta_analisada`) + Page |
-| 3 | Qual operadora tem a maior taxa de glosa e qual o principal motivo? | **Delta Assistência, 4,66%**, motivo acomodação incompatível com o plano (R$ 78,9 mil). A Beta tem o maior valor glosado (R$ 468,5 mil), motivo sem autorização prévia | Confunde maior taxa com maior valor; não acha o motivo sem juntar 4 tabelas | `mv_glosas` + Page "Glosa hospitalar" |
-| 4 | Por que a glosa da Beta subiu a partir de maio de 2026? | Taxa de 2,82% → **5,08%** (contas analisadas). Glosa por falta de autorização de R$ 78,8 mil → **R$ 151,0 mil** | Compara meses com contas não analisadas; não separa por categoria | `mv_glosas` (`categoria_glosa`) |
-| 5 | Quais médicos geram glosa por preço acima do contratado, e vale a pena recorrer? | Só o **Dr. Ricardo Menezes Prado** (Ortopedia, Américas Sul): 49 itens, R$ 152,4 mil, igual ao sobrepreço medido. Recuperação de PREÇO é 13,2% contra 35,5% da ADMINISTRATIVA: corrigir a cobrança na origem | Não cruza com o preço contratado vigente; não conhece a taxa de recuperação | `mv_glosas` (`sobrepreco`) + `mv_recuperacao` + Page "Taxa de recuperação" |
+1. **"Total Revenue"** (domain: Finance) — `SUM(fact_sales.revenue)`, links
+   to `mv_sales_performance`.
+2. **"Customer Return Rate"** (domain: Customer) — cross-metric-view formula,
+   links to both metric views.
+3. **"Retail Analytics Genie Agent"** (domain: Sales) — onboarding page: what
+   it answers, sample questions, links to all 3 metric views and the agent.
 
-### Roteiro de 1 hora
+### Certification
 
-| Tempo | Bloco |
+Every table, every metric view, and the Genie Agent get
+`certification_status = certified`. Tables/views are certified via SQL
+`SET TAGS` in `04_apply_certification_and_domains.py`; the Genie Agent is
+certified by hand (UI kebab menu → **Assign certification** — no SQL target
+exists for that object type).
+
+## Build order
+
+1. **Import this folder** into a Databricks Workspace or Repo folder.
+2. **Run `01_create_catalog_schema_tables.py`.**
+3. **Run `02_create_metric_views.py`.**
+4. **Create the Genie Agent** in the UI using the text in
+   `03_genie_agent_setup.py`; attach the 3 metric views.
+5. **Create the 4 Domains** manually in the UI (Catalog Explorer → Discover →
+   Domains), named exactly `Sales`, `Customer`, `Supply Chain`, `Finance`.
+6. **Certify + domain-tag the Genie Agent by hand** in the UI, then **run
+   `04_apply_certification_and_domains.py`** to cover every table and metric
+   view.
+7. **Create the 3 Pages** manually (Catalog Explorer → Discover → Pages)
+   using the content in `05_pages_content.py`.
+8. **Open Genie One** and run the demo script below.
+9. To reset and rebuild, **run `06_cleanup_delete_all_assets.py`** (drops the
+   SQL-layer assets only — the Genie Agent, Domains, and Pages need manual
+   deletion for a fully clean slate).
+
+### What's scriptable vs. UI-only
+
+Anything expressible as SQL DDL is scriptable; anything that only exists as a
+Catalog Explorer / Discover / Genie One UI flow (no confirmed public REST
+endpoint as of this writing) is manual:
+
+| Item | Automatable? |
 |---|---|
-| 0–10 min | Contexto do negócio (o que é glosa e por que a taxa engana) e arquitetura (Lakeflow Connect → medalhão com PK/FK) |
-| 10–20 min | Baseline: perguntas 1, 2 e 4 no Genie sem contexto; mostrar as respostas divergentes |
-| 20–35 min | Ontologia: Metric Views (YAML, regra das contas analisadas), Page "Taxa de glosa", domínios e certificação (rodar o `04` ao vivo) |
-| 35–50 min | As 5 perguntas no agente e no Genie One, abrindo as citações de cada resposta |
-| 50–60 min | Perguntas e próximos passos |
+| Catalog, schema, tables, constraints, synthetic data | Yes — `01_create_catalog_schema_tables.py` |
+| Metric views + semantic metadata | Yes — `02_create_metric_views.py` |
+| Certification + domain tags (tables + metric views) | Yes — `04_apply_certification_and_domains.py` |
+| Domain object itself (create/publish to Discover) | No — manual, Catalog Explorer UI |
+| Genie Agent creation + attaching data sources | No — manual, Genie One UI |
+| Genie Agent certification + domain tag | No — manual, no SQL target for this object type |
+| Pages (create + body content) | No — manual, no confirmed public API |
+| Deleting SQL-layer assets | Yes — `06_cleanup_delete_all_assets.py` |
+| Deleting Genie Agent / Domains / Pages | No — manual |
 
-## Lições e problemas comuns
+## Demo script
 
-| Sintoma | Causa e solução |
-|---|---|
-| `Only serverless compute is supported in the workspace` | O gateway exige compute clássico. Use Integrated CDC (célula B'.1) |
-| `Default Storage for Unity Catalog is not supported on LakeFlow Connect pipelines` | Use um catálogo com `MANAGED LOCATION` |
-| `PERMISSION_DENIED: Can not move tables across arclight catalogs` | O pipeline foi criado com catálogo padrão em Default Storage. Recrie com catálogo padrão igual à chave `catalogo` |
-| `UC_REFERENTIAL_CONSTRAINT_DOES_NOT_EXIST` | O SDP grava PK e FK em paralelo. Rode as duas fases (só PK, depois PK + FK) |
-| `PARSE_SYNTAX_ERROR` perto de `EXPECT` | A `EXPECT` precisa vir antes de `PRIMARY KEY` e `FOREIGN KEY` na lista do schema |
-| `PARSE_SYNTAX_ERROR` perto de `.` | Falta a Configuration do pipeline (`catalogo`, `bronze`, `prata`, `ouro`) |
-| Integrated CDC: `Client with IP address ... is not allowed` | O IP de saída do serverless mudou dentro do bloco. Libere o `/24` no firewall |
-| Conferência mostra `NÃO EXISTE` | Widget `catalog_name` errado: use `rede_americas` |
-| `Table ... is already managed by pipeline` | Pipeline recriado sem apagar as tabelas do anterior: apague o pipeline antigo ou os schemas |
+Once everything is built, ask Genie One questions that force it to pull from
+different ontology layers, and check the "sources used" panel on each
+response:
 
-## Cleanup
+- *"What was total revenue last quarter by product category?"* → should route
+  to `Retail Analytics Genie` / `mv_sales_performance`, citing the certified
+  badge.
+- *"What's our customer return rate this year vs last?"* → should combine
+  `mv_customer_returns` and `mv_sales_performance`, and ideally surface the
+  "Customer Return Rate" Page for the formula.
+- *"What does 'total revenue' mean here?"* → should surface the **Page**, not
+  just the metric view.
+- *"Which region has the highest revenue but also high returns?"* → forces a
+  join across both metric views, a good test of cross-domain reasoning.
+- Ask one question *before* certifying/tagging domains and the same question
+  *after*, to see the authority-score / ranking difference in the response
+  sources.
 
-1. Apague na UI os pipelines `ont_medalhao`, `ont_ingestao` e `ont_gateway`, se houver.
-2. Rode o `06_cleanup_delete_all_assets` com `DELETE` no widget: ele apaga os 4 schemas `ontologia_*`, sem apagar o
-   catálogo.
-3. Apague à mão os 2 Genie spaces, as 4 Pages e, se quiser, os 3 domínios.
-4. Origem: `az sql db delete -g <seu-resource-group> -s <seu-servidor> -n rede_americas_ontologia`.
+## Notes
+
+- Metric-view YAML syntax has evolved across Databricks releases (this demo
+  targets metric view spec `1.1`). If `CREATE VIEW ... WITH METRICS` fails on
+  a `format:` block, drop those lines, re-run, and add formatting back later
+  from the metric view's YAML editor in Catalog Explorer (it has live
+  validation).
+- Make sure the SQL warehouse has `CAN USE` permission granted to whichever
+  user/group will use Genie One chat against this data.

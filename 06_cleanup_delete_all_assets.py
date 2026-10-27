@@ -1,28 +1,22 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # 06 - Limpeza: apagar os ativos SQL da demo
+# MAGIC # 06 - Cleanup: delete SQL-layer demo assets
 # MAGIC
-# MAGIC Diferente do repo original, **não apaga o catálogo**: `rede_americas` é compartilhado com as outras demos
-# MAGIC (pode ter outras demos). Apaga só os quatro schemas `ontologia_*`, com tabelas, materialized views e
-# MAGIC Metric Views.
+# MAGIC Drops the demo catalog (cascades to schema, all tables, and all metric views),
+# MAGIC so you can re-run `01_create_catalog_schema_tables` and `02_create_metric_views`
+# MAGIC from a clean slate.
 # MAGIC
-# MAGIC **Antes**, apague na UI (**Jobs & Pipelines**) os pipelines `ont_medalhao` e `ont_ingestao` (e `ont_gateway`, no
-# MAGIC caminho com gateway em compute clássico). Se recriar um pipeline sem limpar as tabelas, o SDP recusa com
-# MAGIC "table is already managed by pipeline".
+# MAGIC **This does NOT delete the things you created by hand in the UI** - there is no
+# MAGIC confirmed public API for these object types, so remove them manually if you
+# MAGIC want a fully clean slate before the next demo run:
+# MAGIC - The **Genie Agent** (`Retail Analytics Genie`)
+# MAGIC - The **4 Domains** (Catalog Explorer -> Discover -> Domains) - or leave them,
+# MAGIC   since they're just governed tags and can be reused next run
+# MAGIC - The **3 Pages** (Catalog Explorer -> Discover -> Pages)
 # MAGIC
-# MAGIC **Não apaga** o que foi criado à mão:
-# MAGIC - os 2 Genie spaces: "Faturamento e Glosas — Rede Américas" e "Faturamento — sem contexto (baseline)";
-# MAGIC - os 3 domínios (podem ficar: são só governed tags);
-# MAGIC - as 4 Pages;
-# MAGIC - a conexão, se você criou uma nova.
-# MAGIC
-# MAGIC Na origem (Azure SQL), se quiser desfazer tudo:
-# MAGIC - regra de firewall do IP de saída do workspace:
-# MAGIC   `az sql server firewall-rule delete -g <seu-resource-group> -s <seu-servidor> -n <nome-da-regra>`;
-# MAGIC - o banco: `az sql db delete -g <seu-resource-group> -s <seu-servidor> -n rede_americas_ontologia`.
-# MAGIC
-# MAGIC ## Trava de segurança
-# MAGIC Destrutivo: digite `DELETE` no widget `confirm` antes de rodar a célula abaixo.
+# MAGIC ## Safety check
+# MAGIC This is destructive. Type `DELETE` in the `confirm` widget before running the
+# MAGIC cell below - anything else aborts.
 
 # COMMAND ----------
 
@@ -30,13 +24,12 @@
 
 # COMMAND ----------
 
-dbutils.widgets.text("confirm", "", "Digite DELETE para confirmar")
+dbutils.widgets.text("confirm", "", "Type DELETE to confirm")
 confirm = dbutils.widgets.get("confirm")
 
 if confirm != "DELETE":
-    print(f"Cancelado: o widget confirm tem '{confirm}', esperado 'DELETE'. Nada foi apagado.")
+    print(f"Aborted: confirm widget was '{confirm}', expected 'DELETE'. Nothing was deleted.")
 else:
-    for s in (S_OURO, S_PRATA, S_BRONZE, S_STAGING):
-        spark.sql(f"DROP SCHEMA IF EXISTS {CATALOG}.{s} CASCADE")
-        print("Apagado", f"{CATALOG}.{s}")
-    print("Lembrete: Genie spaces, domínios e Pages continuam; apague na UI se quiser começar do zero.")
+    spark.sql(f"DROP CATALOG IF EXISTS {CATALOG} CASCADE")
+    print(f"Dropped catalog {CATALOG} (schema, tables, and metric views removed).")
+    print("Reminder: Genie Agent, Domains, and Pages still need manual cleanup if desired.")

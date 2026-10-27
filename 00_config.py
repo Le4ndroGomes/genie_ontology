@@ -17,7 +17,7 @@
 
 # COMMAND ----------
 
-dbutils.widgets.text("catalog_name", "rede_americas_demo", "Catálogo")
+dbutils.widgets.text("catalog_name", "rede_americas", "Catálogo")
 dbutils.widgets.text("prefixo_schema", "ontologia", "Prefixo dos schemas")
 
 CATALOG = dbutils.widgets.get("catalog_name").strip()

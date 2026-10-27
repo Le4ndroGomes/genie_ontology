@@ -20,9 +20,9 @@
 # MAGIC
 # MAGIC ## Fontes de dados
 # MAGIC Anexe **só** as três Metric Views (criadas em `02_create_metric_views`):
-# MAGIC - `rede_americas_demo.ontologia_ouro.mv_faturamento_glosa`
-# MAGIC - `rede_americas_demo.ontologia_ouro.mv_autorizacoes`
-# MAGIC - `rede_americas_demo.ontologia_ouro.mv_central`
+# MAGIC - `rede_americas.ontologia_ouro.mv_faturamento_glosa`
+# MAGIC - `rede_americas.ontologia_ouro.mv_autorizacoes`
+# MAGIC - `rede_americas.ontologia_ouro.mv_central`
 # MAGIC
 # MAGIC Não anexe as tabelas da prata: a ideia da demo é mostrar o Genie preferindo a camada governada a junções ad hoc.
 # MAGIC Para perguntas de detalhe, o Genie One ainda encontra a prata pela ontologia, com as PK/FK e os comentários.
@@ -60,18 +60,18 @@
 # MAGIC ```sql
 # MAGIC -- Negativa da Beta antes x depois de mai/2026 (≈ 3,0% → 37,8%)
 # MAGIC SELECT operadora, mes_solicitacao >= DATE'2026-05-01' AS a_partir_de_maio, MEASURE(taxa_negativa) AS taxa_negativa
-# MAGIC FROM rede_americas_demo.ontologia_ouro.mv_autorizacoes
+# MAGIC FROM rede_americas.ontologia_ouro.mv_autorizacoes
 # MAGIC WHERE procedimento IN ('Ressonância magnética de joelho', 'Artroscopia de joelho (meniscectomia)', 'Artroplastia total de joelho')
 # MAGIC GROUP BY ALL ORDER BY operadora, a_partir_de_maio;
 # MAGIC
 # MAGIC -- Glosa por preço por médico (um médico concentra tudo)
 # MAGIC SELECT medico_responsavel, unidade, MEASURE(valor_glosado) AS glosado, MEASURE(sobrepreco) AS cobrado_acima
-# MAGIC FROM rede_americas_demo.ontologia_ouro.mv_faturamento_glosa
+# MAGIC FROM rede_americas.ontologia_ouro.mv_faturamento_glosa
 # MAGIC WHERE categoria_glosa = 'PRECO' GROUP BY ALL ORDER BY glosado DESC;
 # MAGIC
 # MAGIC -- Reclamações de cobrança na central por plano (Delta Essencial lidera)
 # MAGIC SELECT plano, acomodacao_plano, MEASURE(protocolos) AS protocolos, MEASURE(csat_medio) AS csat
-# MAGIC FROM rede_americas_demo.ontologia_ouro.mv_central
+# MAGIC FROM rede_americas.ontologia_ouro.mv_central
 # MAGIC WHERE assunto = 'Cobrança indevida ao paciente' GROUP BY ALL ORDER BY protocolos DESC;
 # MAGIC ```
 # MAGIC

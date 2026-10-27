@@ -47,8 +47,8 @@
 # MAGIC
 # MAGIC ## Passo C — Pipeline do medalhão (UI), em duas fases
 # MAGIC Importe a pasta `pipeline/` deste repo para o workspace. Crie em **Jobs & Pipelines → Create → ETL pipeline**:
-# MAGIC - nome `ont_medalhao`; catálogo `rede_americas_demo`; schema padrão `ontologia_prata`; compute serverless;
-# MAGIC - **Configuration**: `catalogo` = `rede_americas_demo`, `bronze` = `ontologia_bronze`,
+# MAGIC - nome `ont_medalhao`; catálogo `rede_americas`; schema padrão `ontologia_prata`; compute serverless;
+# MAGIC - **Configuration**: `catalogo` = `rede_americas`, `bronze` = `ontologia_bronze`,
 # MAGIC   `prata` = `ontologia_prata`, `ouro` = `ontologia_ouro`.
 # MAGIC
 # MAGIC | Fase | Source code | Por quê |
@@ -109,7 +109,8 @@ def conferir(fq_schema):
             real = spark.table(f"{fq_schema}.{t}").count()
         except Exception as e:  # tabela ainda não existe
             real = None
-        linhas.append((t, n, real, "OK" if real == n else "DIFERENTE"))
+        status = "NÃO EXISTE (confira catalog_name)" if real is None else "OK" if real == n else "DIFERENTE"
+        linhas.append((t, n, real, status))
     df = spark.createDataFrame(linhas, "tabela string, esperado long, encontrado long, status string")
     display(df)
     return all(r[3] == "OK" for r in linhas)

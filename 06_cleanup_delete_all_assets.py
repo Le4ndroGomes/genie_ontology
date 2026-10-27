@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # 06 - Limpeza: apagar os ativos SQL da demo
 # MAGIC
-# MAGIC Diferente do repo original, **não apaga o catálogo**: `rede_americas_demo` é compartilhado com as outras demos
+# MAGIC Diferente do repo original, **não apaga o catálogo**: `rede_americas` é compartilhado com as outras demos
 # MAGIC (pode ter outras demos). Apaga só os quatro schemas `ontologia_*`, com tabelas, materialized views e
 # MAGIC Metric Views.
 # MAGIC

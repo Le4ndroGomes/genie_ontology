@@ -7,7 +7,7 @@ ingestão) → **medalhão** (pipeline SDP: prata com PK/FK, ouro) → **Metric 
 Cada passo indica o notebook do repo que o acompanha (estrutura de
 [databeli/genie_ontology](https://github.com/databeli/genie_ontology)).
 
-Workspace: `<seu-workspace>` · catálogo `rede_americas_demo` · warehouse serverless de sua escolha.
+Workspace: `<seu-workspace>` · catálogo `rede_americas` · warehouse serverless de sua escolha.
 
 | Camada | Schema | Quem cria |
 |---|---|---|
@@ -53,7 +53,7 @@ serverless não serve), e o IP de saída dele precisa estar no firewall do banco
 
 1. **Importe a pasta do repo** para o workspace (Workspace → ⋮ → Import, ou Git folder).
 2. **Permissões:**
-   - no catálogo `rede_americas_demo`: `USE CATALOG` e `CREATE SCHEMA`;
+   - no catálogo `rede_americas`: `USE CATALOG` e `CREATE SCHEMA`;
    - na conexão: `USE CONNECTION`, ou `CREATE CONNECTION` no metastore para criar uma nova.
 3. **Schemas:** abra `01_ingestao_e_medalhao` e rode até a célula **B.1**. Ela cria `ontologia_staging`,
    `ontologia_bronze`, `ontologia_prata` e `ontologia_ouro`.
@@ -77,9 +77,9 @@ Crie em **Catalog → External data → Connections → Create connection**:
 2. **Connection**: escolha a conexão do passo 1 → **Next**.
 3. **Ingestion setup:**
    - Ingestion pipeline name: `ont_ingestao`
-   - Event log: `rede_americas_demo` / `ontologia_staging`
+   - Event log: `rede_americas` / `ontologia_staging`
    - Ingestion gateway name: `ont_gateway`
-   - Staging location: `rede_americas_demo` / `ontologia_staging`
+   - Staging location: `rede_americas` / `ontologia_staging`
    - **Create pipeline and continue**
 4. **Source:**
    - expanda `rede_americas_ontologia` e marque os schemas `cadastro`, `assistencial`, `faturamento` e
@@ -87,7 +87,7 @@ Crie em **Catalog → External data → Connections → Create connection**:
    - **não** marque `dbo`, que só tem objetos do utility script;
    - deixe o nome de destino igual ao da origem e *History tracking* em SCD tipo 1;
    - **Next** → **Save and continue**.
-5. **Destination**: `rede_americas_demo` / `ontologia_bronze` → **Save and continue**.
+5. **Destination**: `rede_americas` / `ontologia_bronze` → **Save and continue**.
 6. **Database setup**: **Validate**. Deve passar, porque change tracking, utility script v1.7 e permissões já estão no banco.
 7. **Schedules and notifications**: pule (a origem é estática) → **Save and run pipeline**.
 
@@ -130,13 +130,13 @@ Rode a célula **B.2** do notebook `01_ingestao_e_medalhao`. Ela compara as 22 c
    `02_ouro.sql`.
 2. **Jobs & Pipelines → Create → ETL pipeline:**
    - Nome: `ont_medalhao`
-   - Default catalog `rede_americas_demo`, default schema `ontologia_prata`
+   - Default catalog `rede_americas`, default schema `ontologia_prata`
    - Compute **serverless**
 3. Em **Settings → Configuration**, cadastre os pares chave/valor que o SQL usa como `${...}`:
 
    | Chave | Valor |
    |---|---|
-   | `catalogo` | `rede_americas_demo` |
+   | `catalogo` | `rede_americas` |
    | `bronze` | `ontologia_bronze` |
    | `prata` | `ontologia_prata` |
    | `ouro` | `ontologia_ouro` |

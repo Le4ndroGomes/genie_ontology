@@ -41,7 +41,7 @@ Documentação: [Genie One chat](https://docs.databricks.com/aws/en/genie-one/ch
   habilitado e do IP de saída do serverless no firewall do SQL).
 - Catálogo de destino **sem Default Storage**: o Lakeflow Connect recusa catálogos com Default Storage. Em workspace
   serverless, crie o catálogo com `MANAGED LOCATION` numa external location.
-- Catálogo `rede_americas_demo`, com `USE CATALOG` e `CREATE SCHEMA`. Os schemas são criados pelo notebook 01.
+- Catálogo `rede_americas`, com `USE CATALOG` e `CREATE SCHEMA`. Os schemas são criados pelo notebook 01.
 - Na conexão: `CREATE CONNECTION` no metastore (ou `USE CONNECTION` numa conexão existente para o mesmo servidor).
 - SQL warehouse serverless, com `CAN USE` para quem vai usar o Genie One.
 - **Pages** estão em Beta: um account admin habilita em *Account console → Previews*. A **Genie Ontology** está em

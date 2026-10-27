@@ -93,6 +93,31 @@ Crie em **Catalog → External data → Connections → Create connection**:
 
 O gateway sobe em ~5 min, em compute clássico, e faz o snapshot. Depois o pipeline de ingestão, serverless, grava o bronze.
 
+### 2b. Workspace só serverless: Integrated CDC (sem gateway)
+
+Se o workspace só aceita serverless, o assistente acima falha ao subir o gateway ("Only serverless compute is
+supported in the workspace"). Use o **Integrated CDC**: um único pipeline serverless, sem gateway, criado por API
+(a UI ainda não cria esse tipo).
+
+1. **Firewall:** descubra o IP de saída do serverless do workspace (num notebook serverless:
+   `urllib.request.urlopen("https://api.ipify.org").read()`) e libere no SQL:
+   `az sql server firewall-rule create -g <seu-resource-group> -s <seu-servidor> -n workspace-serverless --start-ip-address <IP de saída do serverless> --end-ip-address <IP de saída do serverless>`.
+   O IP pode mudar; se a conexão falhar, confira de novo.
+2. **Catálogo com storage próprio:** catálogos com Default Storage são recusados como destino ("Default Storage for
+   Unity Catalog is not supported on LakeFlow Connect pipelines"). Crie um com `MANAGED LOCATION` numa external location:
+   `CREATE CATALOG rede_americas MANAGED LOCATION 's3://<bucket-da-external-location>/rede_americas'` e use esse
+   nome no widget `catalog_name` do notebook 00/01.
+3. **Conexão:** a mesma do passo 1.
+4. **Pipeline:** no notebook `01_ingestao_e_medalhao`, rode **B.1**, mude o widget `criar_integrated_cdc` para `sim`
+   e rode **B'.1**. Ela cria `ont_ingestao` (`connector_type: "CDC"`, `serverless: true`) com os 4 schemas e dispara a carga.
+   - Equivalente em API: `POST /api/2.0/pipelines` com `ingestion_definition.connection_name`, `connector_type: "CDC"`,
+     um objeto `schema` por schema da origem e `data_staging_options` em `ontologia_staging`; depois
+     `POST /api/2.0/pipelines/<id>/updates`.
+   - O recurso precisa estar habilitado no workspace (account team). Se a criação falhar com erro de recurso não
+     disponível, peça a habilitação.
+5. Change tracking funciona com SCD tipo 1 (o padrão). SCD tipo 2 exige CDC no SQL Server.
+6. Quando o update terminar, siga para o passo 3.
+
 ## 3. Conferir o bronze (2 min)
 
 Rode a célula **B.2** do notebook `01_ingestao_e_medalhao`. Ela compara as 22 contagens com a origem, por exemplo:
@@ -239,6 +264,9 @@ Para ver o efeito do *authority score*, faça uma das perguntas antes do passo 7
 | Sintoma | Causa e solução |
 |---|---|
 | Validate do passo 2 falha com permissão | Rode de novo `azure_sql/03_preparar_lakeflow_connect.sql` como administrador (o utility script já foi aplicado) |
+| Gateway não sobe: "Only serverless compute is supported in the workspace" | Workspace só serverless. Use o Integrated CDC (passo 2b) |
+| `Default Storage for Unity Catalog is not supported on LakeFlow Connect pipelines` | O catálogo de destino usa Default Storage. Crie um catálogo com `MANAGED LOCATION` numa external location (passo 2b) |
+| Integrated CDC não conecta (timeout) | IP de saída do serverless fora do firewall do SQL, ou mudou. Confira o IP de novo (passo 2b) |
 | Gateway não conecta ("Login failed" / timeout) | Banco pausado (espere 1 min e tente de novo) ou IP fora do firewall (libere o IP de saída do compute clássico do workspace) |
 | Pipeline do medalhão: `UC_REFERENTIAL_CONSTRAINT_DOES_NOT_EXIST` | As FKs foram gravadas antes de todas as PKs existirem. Rode a fase 1 (`01_prata_so_pk.sql`) até completar e só então troque para `01_prata.sql` (passo 4) |
 | `PARSE_SYNTAX_ERROR` perto de `EXPECT` | Alguém editou a prata à mão: `EXPECT` precisa vir antes de `PRIMARY KEY`/`FOREIGN KEY`. Regere com `scripts/gerar_prata.py` |

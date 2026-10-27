@@ -27,6 +27,24 @@
 # MAGIC    **Save and run pipeline**.
 # MAGIC 6. Espere a carga (~10 min) e rode a célula **B.2**.
 # MAGIC
+# MAGIC ## Passo B' — Workspace só serverless: Integrated CDC (sem gateway)
+# MAGIC O gateway do Passo B roda em compute clássico. Num workspace só serverless, a criação de cluster falha com
+# MAGIC "Only serverless compute is supported in the workspace" e o assistente da UI não funciona. A alternativa é o
+# MAGIC **Integrated CDC** ([doc](https://docs.databricks.com/aws/en/ingestion/lakeflow-connect/sql-server-integrated-pipeline)):
+# MAGIC um único pipeline serverless (`connector_type: "CDC"`) que referencia a conexão do Unity Catalog. A extração
+# MAGIC acontece dentro de cada update, sem gateway sempre ligado.
+# MAGIC
+# MAGIC | Requisito | Como resolver |
+# MAGIC |---|---|
+# MAGIC | Recurso habilitado no workspace | Peça ao account team. Teste: se a célula B'.1 criar o pipeline, está habilitado |
+# MAGIC | Criação só por API, CLI, notebook ou bundle | A UI ainda não cria Integrated CDC. Use a célula **B'.1** |
+# MAGIC | Rede: o serverless precisa alcançar o banco | Libere no firewall do SQL o **IP de saída do serverless** do workspace (rode `urllib.request.urlopen("https://api.ipify.org")` num notebook serverless). O IP pode mudar: se a conexão falhar, confira de novo |
+# MAGIC | Catálogo de destino **sem Default Storage** | Catálogos com Default Storage são recusados ("Default Storage for Unity Catalog is not supported on LakeFlow Connect pipelines"). Crie um catálogo com `MANAGED LOCATION` numa external location, por exemplo `CREATE CATALOG rede_americas MANAGED LOCATION 's3://<bucket-da-external-location>/rede_americas'`, e use-o no widget `catalog_name` |
+# MAGIC | Change tracking | Funciona com SCD tipo 1 (o padrão). SCD tipo 2 exige CDC do SQL Server |
+# MAGIC
+# MAGIC Roteiro: crie a conexão (Passo A) → rode **B.1** → mude o widget `criar_integrated_cdc` para `sim` e rode
+# MAGIC **B'.1** → acompanhe o pipeline `ont_ingestao` em **Jobs & Pipelines** → rode **B.2**.
+# MAGIC
 # MAGIC ## Passo C — Pipeline do medalhão (UI), em duas fases
 # MAGIC Importe a pasta `pipeline/` deste repo para o workspace. Crie em **Jobs & Pipelines → Create → ETL pipeline**:
 # MAGIC - nome `ont_medalhao`; catálogo `rede_americas_demo`; schema padrão `ontologia_prata`; compute serverless;
@@ -98,6 +116,46 @@ def conferir(fq_schema):
 
 
 print("Bronze completo:", conferir(FQ_BRONZE))
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### B'.1 (opcional) Integrated CDC por API — só para workspace só serverless
+# MAGIC Cria o pipeline `ont_ingestao` (serverless, sem gateway) com os 4 schemas da origem e dispara a primeira
+# MAGIC carga. Só roda com o widget `criar_integrated_cdc` = `sim`. Depois que terminar, volte e rode a **B.2**.
+
+# COMMAND ----------
+
+dbutils.widgets.dropdown("criar_integrated_cdc", "nao", ["nao", "sim"], "Criar Integrated CDC?")
+dbutils.widgets.text("conexao", "rede_americas_ontologia", "Conexão do UC")
+dbutils.widgets.text("banco_origem", "rede_americas_ontologia", "Banco na origem")
+
+if dbutils.widgets.get("criar_integrated_cdc") != "sim":
+    print("Pulado: mude o widget criar_integrated_cdc para 'sim' para criar o pipeline.")
+else:
+    from databricks.sdk import WorkspaceClient
+    w = WorkspaceClient()
+    banco = dbutils.widgets.get("banco_origem").strip()
+    corpo = {
+        "name": "ont_ingestao",
+        "catalog": CATALOG,
+        "schema": S_BRONZE,
+        "serverless": True,
+        "continuous": False,
+        "ingestion_definition": {
+            "connection_name": dbutils.widgets.get("conexao").strip(),
+            "connector_type": "CDC",
+            "objects": [{"schema": {"source_catalog": banco, "source_schema": s,
+                                    "destination_catalog": CATALOG, "destination_schema": S_BRONZE}}
+                        for s in ("cadastro", "assistencial", "faturamento", "relacionamento")],
+            "data_staging_options": {"catalog_name": CATALOG, "schema_name": S_STAGING},
+        },
+    }
+    pipeline_id = w.api_client.do("POST", "/api/2.0/pipelines", body=corpo)["pipeline_id"]
+    update_id = w.api_client.do("POST", f"/api/2.0/pipelines/{pipeline_id}/updates",
+                                body={"full_refresh": False})["update_id"]
+    print(f"Pipeline {pipeline_id} criado; update {update_id} disparado.")
+    print(f"Acompanhe em: {w.config.host}/pipelines/{pipeline_id}")
 
 # COMMAND ----------
 

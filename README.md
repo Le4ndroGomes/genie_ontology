@@ -36,7 +36,11 @@ Documentação: [Genie One chat](https://docs.databricks.com/aws/en/genie-one/ch
 
 ## Pré-requisitos
 
-- Workspace `<seu-workspace>` (o gateway do Lakeflow Connect usa compute clássico; workspace só serverless não serve).
+- Workspace `<seu-workspace>`. Com compute clássico, use o gateway do Lakeflow Connect (UI). Em workspace **só
+  serverless**, use o **Integrated CDC** (sem gateway, criado por API na célula B'.1 do notebook 01; precisa do recurso
+  habilitado e do IP de saída do serverless no firewall do SQL).
+- Catálogo de destino **sem Default Storage**: o Lakeflow Connect recusa catálogos com Default Storage. Em workspace
+  serverless, crie o catálogo com `MANAGED LOCATION` numa external location.
 - Catálogo `rede_americas_demo`, com `USE CATALOG` e `CREATE SCHEMA`. Os schemas são criados pelo notebook 01.
 - Na conexão: `CREATE CONNECTION` no metastore (ou `USE CONNECTION` numa conexão existente para o mesmo servidor).
 - SQL warehouse serverless, com `CAN USE` para quem vai usar o Genie One.
@@ -238,7 +242,7 @@ O clique a clique está em [`ROTEIRO.md`](ROTEIRO.md).
 | Item | Automatizável? |
 |---|---|
 | Banco de origem (DDL, dados, change tracking, permissões) | Sim: `azure_sql/` |
-| Conexão, gateway e pipeline do Lakeflow Connect | Nesta demo, UI (dá para fazer por API ou bundle, mas o objetivo é mostrar o fluxo manual) |
+| Conexão, gateway e pipeline do Lakeflow Connect | Workspace com compute clássico: UI (gateway). Workspace só serverless: Integrated CDC por API (célula B'.1 do notebook 01); a UI ainda não cria esse tipo |
 | Pipeline do medalhão | Criação na UI; o SQL está em `pipeline/` (gerado por `scripts/gerar_prata.py`) |
 | Schemas e conferências | Sim: notebook 01 |
 | Metric Views com metadados semânticos | Sim: notebook 02 |
@@ -280,6 +284,12 @@ fontes mostra o efeito do *authority score*.
 - **Recriar o pipeline sem apagar as tabelas do anterior** dá "table is already managed by pipeline". Apague os
   schemas prata e ouro antes.
 - **Metric View YAML 1.1** aceitou `display_name`, `synonyms` e `comment` em dimensões e medidas.
+- **Workspace só serverless não sobe o gateway** ("Only serverless compute is supported in the workspace"). O
+  caminho é o **Integrated CDC** (`connector_type: "CDC"`, `serverless: true`), criado só por API, CLI, notebook ou bundle.
+- **Lakeflow Connect recusa catálogo com Default Storage** ("Default Storage for Unity Catalog is not supported on
+  LakeFlow Connect pipelines"). Crie o catálogo com `MANAGED LOCATION` numa external location.
+- **Integrated CDC em serverless precisa do IP de saída do serverless no firewall do SQL.** Descubra-o com um
+  notebook serverless lendo `https://api.ipify.org`; ele pode mudar.
 
 ## Custos e cuidados
 

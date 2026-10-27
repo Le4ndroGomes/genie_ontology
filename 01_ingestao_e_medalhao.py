@@ -54,12 +54,16 @@
 # MAGIC | Fase | Source code | Por quê |
 # MAGIC |---|---|---|
 # MAGIC | 1 | `pipeline/01_prata_so_pk.sql` + `pipeline/02_ouro.sql` → **Run** | Cria as 22 tabelas e registra as **PKs** |
-# MAGIC | 2 | troque `01_prata_so_pk.sql` por `pipeline/01_prata.sql` → **Run** | Registra as **33 FKs**, agora que todas as PKs existem |
+# MAGIC | 2 | **remova** `01_prata_so_pk.sql` do source code e adicione `pipeline/01_prata.sql` → **Run** | Registra as **33 FKs**, agora que todas as PKs existem. Os dois arquivos juntos definem as tabelas duas vezes |
 # MAGIC
 # MAGIC As duas fases são necessárias porque o SDP grava as chaves de todas as tabelas em paralelo no fim da execução.
 # MAGIC Se a FK chega antes da PK da tabela-pai, a execução falha com `UC_REFERENTIAL_CONSTRAINT_DOES_NOT_EXIST`.
 # MAGIC Depois da fase 2, execuções normais e *full refresh* ficam estáveis (testado em 26/10/2026). Rode a célula
 # MAGIC **C.1** depois de cada fase.
+# MAGIC
+# MAGIC **Catálogo padrão do pipeline = o valor de `catalogo` na Configuration.** Se o pipeline nascer com outro catálogo
+# MAGIC (em especial um com Default Storage), ele falha com `Can not move tables across arclight catalogs` e precisa ser
+# MAGIC recriado: trocar o catálogo depois não resolve.
 # MAGIC
 # MAGIC O que a prata faz, tabela a tabela (o arquivo é gerado por `scripts/gerar_prata.py` a partir do catálogo da origem):
 # MAGIC - tipos explícitos e `NOT NULL`;
@@ -178,15 +182,11 @@ display(spark.sql(f"""
 
 # MAGIC %md
 # MAGIC ### C.2 Ouro
-# MAGIC Três fatos desnormalizados, base das Metric Views:
-# MAGIC - `fato_itens_faturados`: grão item da conta (faturado, glosa, recurso, preço contratado vigente);
-# MAGIC - `fato_autorizacoes`: grão guia (resposta, atendido mesmo negado, glosa 1801, reclamações);
-# MAGIC - `fato_protocolos`: grão protocolo da central (plano vigente na data, CSAT, NPS).
+# MAGIC Um fato desnormalizado, base das três Metric Views (`mv_faturamento`, `mv_glosas`, `mv_recuperacao`):
+# MAGIC `fato_itens_faturados`, grão item da conta, com faturado, glosa, recurso, preço contratado vigente e
+# MAGIC `conta_analisada` (regra da taxa de glosa). Esperado: **34.010** linhas, igual a `itens_conta`.
 
 # COMMAND ----------
 
-display(spark.sql(f"""
-  SELECT 'fato_itens_faturados' AS fato, COUNT(*) AS linhas FROM {FQ_OURO}.fato_itens_faturados UNION ALL
-  SELECT 'fato_autorizacoes', COUNT(*) FROM {FQ_OURO}.fato_autorizacoes UNION ALL
-  SELECT 'fato_protocolos', COUNT(*) FROM {FQ_OURO}.fato_protocolos"""))
-# esperado: 34.010 · 2.312 · 8.848
+n = spark.table(f"{FQ_OURO}.fato_itens_faturados").count()
+print("fato_itens_faturados:", n, "OK" if n == ESPERADO["itens_conta"] else "DIFERENTE (esperado 34.010)")

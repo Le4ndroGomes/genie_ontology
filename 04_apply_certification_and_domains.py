@@ -9,7 +9,7 @@
 # MAGIC É idempotente: rodar de novo só reaplica os mesmos tags.
 # MAGIC
 # MAGIC Como no repo original, o domínio criado em **Discover → Create domain** vira um tag sem valor cuja chave é o
-# MAGIC nome exato do domínio. **Crie os 4 domínios na UI antes, com estes nomes exatos** (acentos incluídos).
+# MAGIC nome exato do domínio. **Crie os 3 domínios na UI antes, com estes nomes exatos** (acentos incluídos).
 # MAGIC
 # MAGIC Testado em 26/10/2026:
 # MAGIC - `SET TAGS` e `SET TAG ON TABLE` funcionam nas materialized views do pipeline SDP;
@@ -24,32 +24,27 @@
 
 # COMMAND ----------
 
-DOMAIN_NAMES = ["Faturamento e Glosa", "Autorização Prévia", "Central de Atendimento", "Cadastro e Assistencial"]
+DOMAIN_NAMES = ["Faturamento Hospitalar", "Glosas e Recuperação", "Cadastro Assistencial"]
 
-FAT, AUT, CEN, CAD = DOMAIN_NAMES
-# Domínio(s) de cada ativo. Um ativo pode estar em mais de um domínio.
+FAT, GLO, CAD = DOMAIN_NAMES
+# Domínio(s) de cada ativo. Um ativo pode estar em mais de um domínio. As tabelas de autorização e da central
+# (autorizacoes, protocolos, canais, assuntos, pesquisas_satisfacao) ficam fora: não fazem parte desta demo.
 ASSET_DOMAINS = {
     # prata — cadastro
     (S_PRATA, "unidades"): [CAD], (S_PRATA, "especialidades"): [CAD], (S_PRATA, "medicos"): [CAD],
-    (S_PRATA, "pacientes"): [CAD], (S_PRATA, "cids"): [CAD],
-    (S_PRATA, "operadoras"): [CAD, FAT], (S_PRATA, "planos"): [CAD, FAT],
-    (S_PRATA, "beneficiarios"): [CAD], (S_PRATA, "procedimentos"): [CAD, FAT, AUT],
-    (S_PRATA, "precos_contratados"): [FAT],
-    # prata — assistencial
-    (S_PRATA, "atendimentos"): [CAD], (S_PRATA, "autorizacoes"): [AUT],
+    (S_PRATA, "pacientes"): [CAD], (S_PRATA, "cids"): [CAD], (S_PRATA, "beneficiarios"): [CAD],
+    (S_PRATA, "atendimentos"): [CAD],
+    (S_PRATA, "operadoras"): [CAD, FAT], (S_PRATA, "planos"): [CAD, FAT], (S_PRATA, "procedimentos"): [CAD, FAT],
     # prata — faturamento
-    (S_PRATA, "contas"): [FAT], (S_PRATA, "itens_conta"): [FAT], (S_PRATA, "motivos_glosa"): [FAT],
-    (S_PRATA, "glosas"): [FAT], (S_PRATA, "recursos_glosa"): [FAT], (S_PRATA, "pagamentos"): [FAT],
-    # prata — central
-    (S_PRATA, "canais"): [CEN], (S_PRATA, "assuntos"): [CEN], (S_PRATA, "protocolos"): [CEN],
-    (S_PRATA, "pesquisas_satisfacao"): [CEN],
+    (S_PRATA, "contas"): [FAT], (S_PRATA, "itens_conta"): [FAT], (S_PRATA, "pagamentos"): [FAT],
+    (S_PRATA, "precos_contratados"): [FAT],
+    # prata — glosas e recursos
+    (S_PRATA, "glosas"): [GLO], (S_PRATA, "motivos_glosa"): [GLO], (S_PRATA, "recursos_glosa"): [GLO],
     # ouro
-    (S_OURO, "fato_itens_faturados"): [FAT], (S_OURO, "fato_autorizacoes"): [AUT, FAT],
-    (S_OURO, "fato_protocolos"): [CEN],
-    (S_OURO, "mv_faturamento_glosa"): [FAT], (S_OURO, "mv_autorizacoes"): [AUT, FAT],
-    (S_OURO, "mv_central"): [CEN],
+    (S_OURO, "fato_itens_faturados"): [FAT, GLO],
+    (S_OURO, "mv_faturamento"): [FAT], (S_OURO, "mv_glosas"): [GLO], (S_OURO, "mv_recuperacao"): [GLO],
 }
-METRIC_VIEWS = {"mv_faturamento_glosa", "mv_autorizacoes", "mv_central"}
+METRIC_VIEWS = {"mv_faturamento", "mv_glosas", "mv_recuperacao"}
 
 # COMMAND ----------
 

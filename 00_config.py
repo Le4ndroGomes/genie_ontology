@@ -5,7 +5,7 @@
 # MAGIC Os outros notebooks começam com `%run ./00_config` para ler os nomes abaixo. Mude os defaults aqui (ou
 # MAGIC sobrescreva na barra de widgets) e todos ficam em sincronia.
 # MAGIC
-# MAGIC Parte da demo **Genie One + Genie Ontology — Rede Américas (ciclo de receita)**, adaptada de
+# MAGIC Parte da demo **Genie Ontology — faturamento hospitalar e glosas** (Rede Américas), adaptada de
 # MAGIC [databeli/genie_ontology](https://github.com/databeli/genie_ontology). Dados 100% sintéticos.
 # MAGIC
 # MAGIC | Schema | Conteúdo | Quem cria |
@@ -13,7 +13,7 @@
 # MAGIC | `ontologia_staging` | Volume de staging e event log da ingestão | Lakeflow Connect |
 # MAGIC | `ontologia_bronze` | Cópia fiel das 22 tabelas do Azure SQL | Lakeflow Connect |
 # MAGIC | `ontologia_prata` | 22 materialized views tipadas, com PK/FK, comentários e qualidade | Pipeline `ont_medalhao` |
-# MAGIC | `ontologia_ouro` | 3 fatos + 3 Metric Views | Pipeline `ont_medalhao` + `02_create_metric_views` |
+# MAGIC | `ontologia_ouro` | 1 fato (`fato_itens_faturados`) + 3 Metric Views (`mv_faturamento`, `mv_glosas`, `mv_recuperacao`) | Pipeline `ont_medalhao` + `02_create_metric_views` |
 
 # COMMAND ----------
 
